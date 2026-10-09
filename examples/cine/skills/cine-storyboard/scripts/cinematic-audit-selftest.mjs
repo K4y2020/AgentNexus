@@ -49,7 +49,7 @@ const audit = (mutateBoard = () => {}, mutateContext = () => {}) => {
 };
 const clean = audit();
 check(clean.status === 'pass' && !clean.issues.length && !clean.skips.length, 'complete Ref2VA fixture passes all applicable evaluation rules');
-check(clean.evaluated_checks.length === 18 && clean.evaluated_checks.filter((item) => !['h3-voiceover-exact-format', 'h3-nonverbal-vocal-cues'].includes(item.id)).every((item) => item.evaluated > 0), 'all applicable format rules report evaluated counts; absent voice-over and non-verbal cues are not applicable');
+check(clean.evaluated_checks.length === 17 && clean.evaluated_checks.filter((item) => !['h3-voiceover-exact-format', 'h3-nonverbal-vocal-cues'].includes(item.id)).every((item) => item.evaluated > 0), 'all applicable format rules report evaluated counts; absent voice-over and non-verbal cues are not applicable');
 check(!issues(clean, 'video-no-film-still').length, 'painterly frames and video prompts contain no film-still instruction');
 check(issues(audit((b) => { b.episodes[0].segments[0].h3Prompt += '\nFILM STILL'; }), 'video-no-film-still').length === 1, 'film still is rejected only in the video prompt');
 check(issues(audit((b) => { b.episodes[0].segments[0].h3Prompt += '\nfilm-still'; }), 'video-no-film-still').length === 1, 'hyphenated film-still is rejected');
@@ -86,9 +86,9 @@ check(!issues(audit((b) => { b.episodes[0].segments[0].cuts[0].characters = []; 
 check(issues(audit((b) => { b.episodes[0].segments[0].cuts[0].characters = []; b.episodes[0].segments[0].h3Prompt = prompt('别人的句子。', undefined, 'says in an off-screen voiceover').replace('overall_soundscape:', 'A worker says: <d>[Chinese] 盒子到了。</d>\noverall_soundscape:'); }), 'dialogue-speaker-visible').length === 1, 'voice-over on another dialogue block does not exempt this line');
 check(issues(audit((b) => { b.episodes[0].segments[0].cuts[0].characters = []; }, (c) => { c.script.episodes[0].scenes[0].flow[1].delivery = '画外音'; }), 'dialogue-speaker-visible').length === 1, 'voice-over script needs explicit prompt voice-over');
 check(!issues(audit((b) => { b.episodes[0].segments[0].cuts[0].characters = []; b.episodes[0].segments[0].h3Prompt = prompt('盒子到了。', undefined, 'voice-over'); }, (c) => { c.script.episodes[0].scenes[0].flow[1].speaker = 'VO'; }), 'dialogue-speaker-visible').length, 'the VO speaker convention is recognized');
-check(issues(audit((b) => { b.episodes[0].segments[0].cuts[0].beats = [1, 4]; }), 'one-speaker-per-cut').length === 1, 'one cut with two speakers fails');
-check(!issues(audit((b) => { b.episodes[0].segments[0].cuts[0].beats = [1, 4]; }, (c) => { c.script.episodes[0].scenes[0].flow[3].speaker = 'C01'; }), 'one-speaker-per-cut').length, 'multiple lines and actions by one speaker are allowed');
-check(audit((b) => { b.episodes[0].segments[0].cuts[0].beats = [1, 99]; }).skips.some((item) => item.rule === 'one-speaker-per-cut'), 'invalid beat claims are not counted as successful speaker checks');
+check(issues(audit((b) => { b.episodes[0].segments[0].cuts[0].beats = [1, 4]; }), 'dialogue-speaker-visible').length === 1, 'each speaking character must still be present or marked voice-over');
+check(!issues(audit((b) => { b.episodes[0].segments[0].cuts[0].beats = [1, 4]; b.episodes[0].segments[0].cuts[0].characters = ['C01', 'C02']; }), 'dialogue-speaker-visible').length, 'several visible speakers may speak sequentially in one cut');
+check(audit((b) => { b.episodes[0].segments[0].cuts[0].beats = [1, 99]; }).skips.some((item) => item.rule === 'dialogue-speaker-visible'), 'invalid beat claims are not counted as successful speaker checks');
 check(audit(() => {}, (c) => { delete c.script; }).skips.some((item) => item.rule === 'dialogue-speaker-visible'), 'missing script reports unevaluated speaker checks');
 
 check(issues(audit((b) => { delete b.episodes[0].segments[1].continuesFrom; }), 'same-scene-continues-from').length === 1, 'same-scene continuation must be present');
@@ -121,7 +121,7 @@ const hasIssue = (change, rule) => issues(firstPrompt(change), rule).length > 0;
 // Advisory audit rules are reported but never become production gates.
 const advisoryRules = ['h3-nonverbal-vocal-cues'];
 const officialRules = clean.evaluated_checks.filter((rule) => rule.id.startsWith('h3-') && !advisoryRules.includes(rule.id)).map((rule) => rule.id);
-check(clean.audit_version === 3 && clean.scope === 'read-only', 'audit version identifies the updated evaluation policy');
+check(clean.audit_version === 4 && clean.scope === 'read-only', 'audit version identifies the updated evaluation policy');
 check(!clean.evaluated_checks.some((rule) => rule.id === 'scene-music-continuity'), 'superseded music-continuity rule is absent');
 check(clean.limitations.some((item) => item.includes('appearance, position, action')), 'inline binding does not certify visual-description semantics');
 check(clean.limitations.some((item) => item.includes('ordinary wind, rain, impacts')), 'speaker-ID boundary excludes ordinary physical sound sources');
@@ -247,8 +247,8 @@ const targetRules = [...officialRules, 'style-consistency'];
 const strictCtx = { ...ctx, ref2va: true };
 const strictGates = gateReport(board, strictCtx);
 check(strictGates.length === 32 && targetRules.length === 10, 'production exposes 32 gates including all ten reference-format and style rules');
-const sceneRules = ['same-scene-continues-from', 'one-speaker-per-cut'];
-check(sceneRules.every((rule) => strictGates.some((gate) => gate.id === rule && gate.ok && !gate.detail)), 'continuation and one-speaker gates pass the complete fixture');
+const sceneRules = ['same-scene-continues-from', 'continuous-take'];
+check(sceneRules.every((rule) => strictGates.some((gate) => gate.id === rule && gate.ok && !gate.detail)), 'continuation passes and continuous-take is inapplicable without a kept form');
 const unlinked = clone(board);
 delete unlinked.episodes[0].segments[1].continuesFrom;
 const unlinkedGate = gateReport(unlinked, strictCtx).find((gate) => gate.id === 'same-scene-continues-from');
@@ -258,15 +258,76 @@ const elsewhere = clone(board);
 elsewhere.episodes[0].segments[1].cuts[0].characters = ['C02'];
 check(gateReport(elsewhere, strictCtx).find((gate) => gate.id === 'same-scene-continues-from').detail.includes('上一段末镜 medium · C01 · Static Shot，本段首镜 medium · C02 · Static Shot'), 'production rejects an opening that drops the previous last-frame characters and shows both shots');
 check(gateReport(unlinked, ctx).find((gate) => gate.id === 'same-scene-continues-from').detail.includes('--ref2va'), 'keyframe export mode does not require continuation');
-const twoVoices = clone(board);
-twoVoices.episodes[0].segments[0].cuts[0].beats = [1, 4];
-const twoVoicesGate = gateReport(twoVoices, strictCtx).find((gate) => gate.id === 'one-speaker-per-cut');
-check(!twoVoicesGate.ok && twoVoicesGate.detail.includes('E01-01#1') && twoVoicesGate.detail.includes('说话人 C01、C02'), 'production rejects a cut carrying two speakers and names them');
-const oneVoice = clone(twoVoices);
-const oneVoiceScript = clone(strictCtx);
-oneVoiceScript.script.episodes[0].scenes[0].flow[3].speaker = 'C01';
-check(gateReport(oneVoice, oneVoiceScript).find((gate) => gate.id === 'one-speaker-per-cut').ok, 'several lines by one speaker in a cut pass production');
-check(gateReport(board, { ...strictCtx, script: undefined }).find((gate) => gate.id === 'one-speaker-per-cut').detail.includes('script.json'), 'without a script the speaker gate is skipped like the other script gates');
+
+const continuousCtx = clone(strictCtx);
+continuousCtx.outline.scenes = [{ id: 'S01' }, { id: 'S02' }];
+continuousCtx.outline.adaptation = { forms: [{ form: 'scene_one_take', decision: 'keep', how: 'One continuous take per room.', why: 'Keep the uninterrupted exchange.' }] };
+continuousCtx.script.episodes[0].targetSeconds = 18;
+const longTake = clone(board);
+longTake.source = 'The uninterrupted workshop exchange';
+longTake.episodes[0].segments.splice(1, 1);
+longTake.episodes[0].segments[1].id = 'E01-02';
+const longSegment = longTake.episodes[0].segments[0];
+longSegment.cuts[0] = { ...longSegment.cuts[0], seconds: 14, beats: [1, 4], characters: ['C01', 'C02'] };
+longSegment.h3Prompt = longSegment.h3Prompt
+  .replace('summary:', '<Subject 3> — C02; the worker in a grey shirt from <Picture 3>.\nsummary:')
+  .replace('detailed_description:', "<Subject 3> (appears in [Shot 1]): fully_preserved - the worker's grey shirt and appearance are retained.\ndetailed_description:")
+  .replace('[Shot 1] Static Shot.', '[Shot 1] A single continuous take. Static Shot.')
+  .replace('overall_soundscape:', '<Subject 3> (S2), the second worker in a grey shirt with a mid-50s male, dry reedy tenor, mid pitch, thin nasal resonance voice, lowers the curtain. After the first worker finishes speaking, <Subject 3> (S2) says: <d>[Chinese] 先关窗。</d> The first worker listens silently.\noverall_soundscape:');
+longTake.episodes[0].segments[1].h3Prompt = longTake.episodes[0].segments[1].h3Prompt.replace('[Shot 1] Static Shot.', '[Shot 1] One uninterrupted shot. Static Shot.');
+const longTakeProblems = validateStoryboard(longTake, continuousCtx);
+check(longTakeProblems.length === 0, `a complete 14-second uninterrupted scene with two sequential speakers passes native production validation: ${longTakeProblems.join('; ')}`);
+for (const seconds of [12, 15]) {
+  const timed = clone(longTake);
+  timed.episodes[0].segments[0].cuts[0].seconds = seconds;
+  const timedCtx = clone(continuousCtx);
+  timedCtx.script.episodes[0].targetSeconds = seconds + 4;
+  check(validateStoryboard(timed, timedCtx).length === 0, `${seconds}-second continuous take is not forced into five-second cuts`);
+}
+const overLimit = clone(longTake);
+overLimit.episodes[0].segments[0].cuts[0].seconds = 16;
+check(!gateReport(overLimit, continuousCtx).find((gate) => gate.id === 'segment-cap').ok, 'provider generation duration still limits each segment');
+const missingLine = clone(longTake);
+missingLine.episodes[0].segments[0].h3Prompt = longSegment.h3Prompt.replace('<d>[Chinese] 先关窗。</d>', '');
+check(!gateReport(missingLine, continuousCtx).find((gate) => gate.id === 'h3-dialogue').ok, 'a continuous take still needs every claimed line verbatim');
+const wrongVoice = clone(longTake);
+wrongVoice.episodes[0].segments[0].h3Prompt = longSegment.h3Prompt.replaceAll('<Subject 3> (S2)', '<Subject 3> (S1)');
+check(!gateReport(wrongVoice, continuousCtx).find((gate) => gate.id === 'h3-vocal-source-ids').ok, 'two sequential speakers cannot share a vocal source ID');
+const hiddenSpeaker = clone(longTake);
+hiddenSpeaker.episodes[0].segments[0].cuts[0].characters = ['C01'];
+check(issues(auditStoryboard(hiddenSpeaker, continuousCtx), 'dialogue-speaker-visible').length === 1, 'continuous dialogue does not exempt an absent visible speaker');
+for (const [label, mutate] of [
+  ['extra cut', (b) => { b.episodes[0].segments[0].cuts.push(clone(b.episodes[0].segments[0].cuts[0])); }],
+  ['unmarked take', (b) => { b.episodes[0].segments[0].h3Prompt = longSegment.h3Prompt.replace('A single continuous take.', ''); }],
+  ['hidden cut instruction', (b) => { b.episodes[0].segments[0].h3Prompt = longSegment.h3Prompt.replace('Static Shot.', 'Static Shot. At five seconds the camera cuts to a close view.'); }],
+]) {
+  const broken = clone(longTake);
+  mutate(broken);
+  const failed = gateReport(broken, continuousCtx).find((gate) => gate.id === 'continuous-take');
+  check(!failed.ok && failed.detail.includes('E01-01'), `kept scene take rejects ${label} and names the scene segment`);
+}
+for (const instruction of ['No hard cuts or jump cuts.', 'Without any camera cuts.', 'No montage.']) {
+  const locked = clone(longTake);
+  locked.episodes[0].segments[0].h3Prompt = longSegment.h3Prompt.replace('Static Shot.', `Static Shot. ${instruction}`);
+  check(gateReport(locked, continuousCtx).find((gate) => gate.id === 'continuous-take').ok, 'negative editing constraints do not become positive cut instructions');
+}
+const contradictory = clone(longTake);
+contradictory.episodes[0].segments[0].h3Prompt = longSegment.h3Prompt.replace('Static Shot.', 'Static Shot. No hard cuts. Then the camera cuts to the other face.');
+check(!gateReport(contradictory, continuousCtx).find((gate) => gate.id === 'continuous-take').ok, 'a no-cut declaration does not hide a later positive cut instruction');
+const joinedTake = clone(board);
+for (const segment of joinedTake.episodes[0].segments) segment.h3Prompt = segment.h3Prompt.replace('[Shot 1] Static Shot.', '[Shot 1] A single continuous take. Static Shot.');
+check(gateReport(joinedTake, continuousCtx).find((gate) => gate.id === 'continuous-take').ok, 'one scene can continue across two generation calls through continuesFrom');
+delete joinedTake.episodes[0].segments[1].continuesFrom;
+check(!gateReport(joinedTake, { ...continuousCtx, ref2va: false }).find((gate) => gate.id === 'continuous-take').ok, 'generation boundaries never bypass a kept continuous-take contract');
+const selectedCtx = clone(continuousCtx);
+selectedCtx.outline.adaptation.forms[0].sceneIds = ['S02'];
+check(gateReport(board, selectedCtx).find((gate) => gate.id === 'continuous-take').detail.includes('E01-03'), 'scene-specific continuity uses script scene IDs rather than segment numbering');
+selectedCtx.outline.adaptation.forms[0].sceneIds = ['unknown'];
+check(!gateReport(longTake, selectedCtx).find((gate) => gate.id === 'continuous-take').ok, 'an unknown selected scene cannot silently make continuity inapplicable');
+const dropCtx = clone(continuousCtx);
+dropCtx.outline.adaptation.forms[0].decision = 'drop';
+check(gateReport(board, dropCtx).find((gate) => gate.id === 'continuous-take').ok, 'a reasoned dropped form leaves ordinary editing available');
+
 check(targetRules.every((rule) => strictGates.some((gate) => gate.id === rule && gate.ok && !gate.detail)), 'complete invented reference fixture passes every selected production rule without skip details');
 for (const [rule, changePrompt, changeContext] of [
   ['h3-style-before-shot1', (p) => p.replace(`${styleSentence}\n[Shot 1]`, `[Shot 1] ${styleSentence}`)],

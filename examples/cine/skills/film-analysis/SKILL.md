@@ -319,14 +319,18 @@ Timings and shot references are derived from that plan, not hand-written ranges.
 }
 ```
 
-`forms` names the shooting forms that run through the whole film, not one shot's
+`forms` names the shooting forms that shape the film, not one shot's
 technique: `pov` (the camera is one character's eyes and their face never shows),
 `direct_address` (people talk to the lens as to the audience), `mockumentary`,
-`one_take`, `screen_life` (the story happens on a phone or computer screen),
+`one_take` (one take for the whole film), `scene_one_take` (one uninterrupted take
+per scene, with edits between scenes), `screen_life` (the story happens on a phone or computer screen),
 `found_footage` (CCTV, dashcam or handheld-recorder footage), `split_screen` or `other`.
 `how` says what it looks like in this film. Write `[]` when the film uses none; the
 shot notes' `viewpoint` per shot is evidence for `pov` and `direct_address`. The
 adaptation outline must keep or drop each form with a reason.
+When each doorway visit or conversation is a continuous shot, record
+`scene_one_take`; do not confuse dialogue/action beats with camera cuts or label
+a film with edits between households as a whole-film `one_take`.
 
 Deliver a whole-film synopsis, character relationships, turning points, ending,
 representative visual references and adaptation opportunities. Separate original

@@ -1,4 +1,4 @@
-"""Whole-film shooting forms: what the source uses and what the outline decides about each.
+"""Shooting forms: what the source uses and what the outline decides about each.
 
 A form such as first-person POV shapes every shot, so an adaptation that drops it changes
 the film's kind, not one shot. The story draft names the source's forms and the shot notes
@@ -16,7 +16,8 @@ FORMS = {
     "pov": "第一人称主视角：镜头就是片中某个人的眼睛，这个人不露脸",
     "direct_address": "对镜头说话：人物直接对着镜头/观众说",
     "mockumentary": "伪纪录片/采访体",
-    "one_take": "一镜到底",
+    "one_take": "全片一镜到底",
+    "scene_one_take": "逐场连续镜头：每场各一个连续镜头，只在场与场之间切镜",
     "screen_life": "屏幕叙事：故事发生在手机或电脑屏幕上",
     "found_footage": "设备画面：监控、行车记录仪、手持 DV 拍到的",
     "split_screen": "分屏",
@@ -73,6 +74,22 @@ def outline_form_errors(outline: dict, material: dict | None) -> list[str]:
     entries = [e for e in entries if isinstance(e, dict)] if isinstance(entries, list) else []
     characters = {c.get("id") for c in outline.get("characters") or [] if isinstance(c, dict)}
     errors = []
+    scene_ids = {
+        scene.get("id") for scene in outline.get("scenes") or [] if isinstance(scene, dict)
+    }
+    for entry in entries:
+        if entry.get("form") != "scene_one_take" or entry.get("decision") != "keep":
+            continue
+        selected = entry.get("sceneIds")
+        if "sceneIds" in entry and (
+            not isinstance(selected, list)
+            or not selected
+            or any(not isinstance(scene, str) or scene not in scene_ids for scene in selected)
+        ):
+            errors.append(
+                "逐场连续镜头：sceneIds 必须是非空的 outline.scenes ID 列表；"
+                "省略表示逐场连续拍摄"
+            )
     for form in source_forms(material):
         name = f"原片拍摄形式「{FORMS[form['form']]}」（{form['how']}）"
         entry = next((e for e in entries if e.get("form") == form["form"]), None)

@@ -14,26 +14,28 @@ import { artworkMedium, embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, m
  * AI 短剧的前提刻在骨子里，三层结构也由此而来：
  *
  *   段（segment）＝ 一次视频生成调用，上限就是模型单段时长（默认 15 秒）
- *   分镜（cut）  ＝ 段内的一次剪切，2–5 秒——短剧观众的注意力节奏
+ *   分镜（cut）  ＝ 一次连续拍摄，可覆盖整段，也可承接到下一生成段
  *   分镜图       ＝ 每个分镜一张关键帧：第 1 个分镜的是主分镜图（钉在
  *                  0.00 秒），其余是子分镜图（各钉在自己的切点时刻）
  *
  * 一段的画面由这串分镜图 + 一条 H3 提示词共同控制：多图对齐指令
  * 把每张图钉在对应秒数上，[Shot k] 的切点时刻和分镜秒数逐一对账。
- * 多切一刀的成本几乎为零，所以不心疼分镜数量，只守节奏。
+ * 是否切镜由叙事与已确认的拍摄形式决定，生成段边界不自动成为切点。
  */
 
 export const DEFAULT_PARAMS = {
   minSegmentSeconds: 4,  // 视频模型单段生成下限（秒，如 AutoDL H3 限制 ≥4 秒）
   maxSegmentSeconds: 15, // 视频模型单段生成上限（秒）
   minCutSeconds: 2,      // 单个分镜下限
-  maxCutSeconds: 5,      // 单个分镜上限——3 秒左右是短剧的呼吸
+  maxCutSeconds: 15,     // 缺省跟随单段上限，不另设切镜节奏
   maxOnScreen: 3,        // 单个分镜同框人数上限，超了必须带拆解说明
   tolerance: 0.15,       // 每集总时长对剧本目标的容差
 };
 
 export function paramsOf(doc) {
-  return { ...DEFAULT_PARAMS, ...(doc?.params ?? {}) };
+  const params = { ...DEFAULT_PARAMS, ...(doc?.params ?? {}) };
+  params.maxCutSeconds = doc?.params?.maxCutSeconds ?? params.maxSegmentSeconds;
+  return params;
 }
 
 /** 景别枚举：英文短语必须出现在该分镜的分镜图提示词里。 */
@@ -388,7 +390,7 @@ export const segSeconds = (segment) => r1((segment?.cuts ?? []).reduce((n, c) =>
 
 const AUDIT_RULES = [
   'style-consistency', 'video-no-film-still', 'no-background-music',
-  'dialogue-speaker-visible', 'one-speaker-per-cut', 'same-scene-continues-from',
+  'dialogue-speaker-visible', 'same-scene-continues-from',
   'no-internal-labels', 'consistent-character-naming',
   'h3-style-before-shot1', 'h3-subject-inline-binding', 'h3-referenced-speaker-binding', 'h3-speaker-voice',
   'h3-vocal-source-ids', 'h3-nonverbal-vocal-cues', 'h3-summary-task-prefix', 'h3-retention-per-line',
@@ -848,13 +850,10 @@ export function auditStoryboard(board, ctx = {}) {
         collect(`${cid}.note`, cut.note);
         const [from, to] = cut.beats ?? [];
         if (!scene || !Number.isInteger(from) || !Number.isInteger(to) || from < 1 || from > to || to > scene.beats.length) {
-          for (const rule of ['dialogue-speaker-visible', 'one-speaker-per-cut']) skip(rule, cid, 'Valid script scene and beat range are required');
+          skip('dialogue-speaker-visible', cid, 'Valid script scene and beat range are required');
           continue;
         }
         const lines = scene.beats.slice(from - 1, to).filter((beat) => beat.kind === 'line');
-        evaluated('one-speaker-per-cut');
-        const speakers = new Set(lines.map((beat) => resolveSpeaker(beat.speaker) ?? auditText(beat.speaker)));
-        if (speakers.size > 1) issue('one-speaker-per-cut', cid, 'A cut contains lines from multiple speakers; give each speaker a cut of their own (a voice-over is a separate source)', { speakers: [...speakers], beats: [from, to] });
         for (const beat of lines) {
           evaluated('dialogue-speaker-visible');
           const speaker = resolveSpeaker(beat.speaker) ?? beat.speaker;
@@ -895,7 +894,7 @@ export function auditStoryboard(board, ctx = {}) {
     rule.status = rule.issues ? 'fail' : rule.skipped ? 'incomplete' : rule.evaluated ? 'pass' : 'not-applicable';
   }
   return {
-    audit_version: 3, scope: 'read-only',
+    audit_version: 4, scope: 'read-only',
     status: issues.length ? 'fail' : skips.length ? 'incomplete' : 'pass',
     issue_count: issues.length, issues, skips, evaluated_checks,
     limitations: [
@@ -1319,6 +1318,46 @@ function auditHint(evidence = {}) {
   return parts.length ? `（${parts.join('；')}）` : '';
 }
 
+/** A scene may span generation calls while remaining one uninterrupted take. */
+export function continuousTakeProblems(board, ctx = {}) {
+  const form = ctx.outline?.adaptation?.forms?.find((entry) => entry.form === 'scene_one_take' && entry.decision === 'keep');
+  if (!form) return [];
+  const problems = [];
+  const sceneIds = form.sceneIds;
+  if (sceneIds !== undefined) {
+    const known = new Set((ctx.outline.scenes ?? []).map((scene) => scene.id));
+    if (!Array.isArray(sceneIds) || !sceneIds.length || sceneIds.some((id) => !known.has(id))) {
+      return ['scene_one_take.sceneIds 必须是非空的 outline.scenes ID 列表；省略表示逐场连续拍摄'];
+    }
+    if (!ctx.script) return ['逐场连续镜头缺 script.json，无法核对 sceneIds'];
+  }
+  for (const episode of board?.episodes ?? []) {
+    const scenes = ctx.script?.episodes?.find((entry) => entry.ep === episode.ep)?.scenes ?? [];
+    let previous = null;
+    for (const segment of episode.segments ?? []) {
+      const sceneId = scenes[segment.sceneIndex - 1]?.sceneId;
+      if (!sceneIds || sceneIds.includes(sceneId)) {
+        if (segment.cuts?.length !== 1) problems.push(`${segment.id} 保留逐场连续镜头，每个生成段必须只有一个 cut`);
+        if (previous?.sceneIndex === segment.sceneIndex && segment.continuesFrom !== previous.id) {
+          problems.push(`${segment.id} 是同一连续镜头的下一生成段，continuesFrom 应为「${previous.id}」`);
+        }
+        const shot = h3Remainder(h3CutSlices(segment.h3Prompt ?? '', 1, board?.promptLang ?? 'en')[0] ?? '');
+        if (!/\b(?:single|one|continuous|uninterrupted)[ -]+(?:(?:continuous|uninterrupted)[ -]+)?(?:take|shot)\b|一镜到底|(?:连续|不间断)(?:镜头|拍摄)/i.test(shot)) {
+          problems.push(`${segment.id} 的 [Shot 1] 要明确写出连续、不间断拍摄`);
+        }
+        const cuts = /\bcamera\s+(?:hard\s+)?cuts?\b|\b(?:hard|jump)\s+cuts?\b|\bcut\s+to\b|\bmontage\b|\bshot[\s/-]*reverse[\s/-]*shot\b|(?:镜头|画面)(?:硬切|切到|切至|切换)|正反打/gi;
+        for (const match of shot.matchAll(cuts)) {
+          const before = shot.slice(0, match.index).split(/[.!?;\n]/).at(-1);
+          if (/\b(?:no|without|avoid|never|not)\s+(?:(?:any|hard|jump|camera|cuts?|edits?|and|or)[ ,/-]+)*$|(?:不|禁止|避免|无)$/i.test(before)) continue;
+          problems.push(`${segment.id} 的连续镜头提示词仍要求切镜：「${match[0]}」`);
+        }
+      }
+      previous = segment;
+    }
+  }
+  return problems;
+}
+
 export function gateReport(board, ctx = {}) {
   const gates = [];
   const add = (id, label, ok, detail = '') => gates.push({ id, label, ok, detail });
@@ -1660,7 +1699,9 @@ export function gateReport(board, ctx = {}) {
 
   add('coverage', '剧本节拍被恰好一次、按顺序、连续认领（分镜级）', bad.coverage.length === 0, script ? bad.coverage.join('；') : SKIP_SCRIPT);
   add('segment-cap', `每段 ${params.minSegmentSeconds} ≤ 总秒数 ≤ ${params.maxSegmentSeconds}（视频大模型生成的单段时长上下限）`, eps.length > 0 && bad.segCap.length === 0, bad.segCap.join('；'));
-  add('cut-length', `每个分镜 ${params.minCutSeconds}–${params.maxCutSeconds} 秒——短剧的注意力节奏`, eps.length > 0 && bad.cutLen.length === 0, bad.cutLen.join('；'));
+  add('cut-length', `每个分镜 ${params.minCutSeconds}–${params.maxCutSeconds} 秒（可覆盖整段，按内容确定）`, eps.length > 0 && bad.cutLen.length === 0, bad.cutLen.join('；'));
+  const takeProblems = continuousTakeProblems(board, ctx);
+  add('continuous-take', '保留逐场连续镜头：场内不切镜，跨生成段承接尾帧', takeProblems.length === 0, takeProblems.length ? `[continuous-take] ${takeProblems.join('；')}` : '');
   add('dialogue-fit', '认领节拍的台词装得进分镜秒数', bad.fit.length === 0, script ? bad.fit.join('；') : SKIP_SCRIPT);
   add('ep-duration', `每集总时长在剧本目标 ±${Math.round(params.tolerance * 100)}% 内`, bad.duration.length === 0, script ? bad.duration.join('；') : SKIP_SCRIPT);
   add('crowd', `单个分镜同框 ≤ ${params.maxOnScreen} 人，超了必须带拆解说明`, bad.crowd.length === 0, bad.crowd.join('；'));
@@ -1705,12 +1746,7 @@ export function gateReport(board, ctx = {}) {
     ['h3-voiceover-exact-format', 'Ref2VA：画外音固定句式与紧随的闭唇说明完整'],
     ['style-consistency', 'Ref2VA：视频、分镜图与使用的角色和场景参考画风一致'],
     ['same-scene-continues-from', 'Ref2VA：同场相邻段从上一段尾帧接着拍（continuesFrom），首镜起幅接得上上一段末镜，换场不接'],
-    ['one-speaker-per-cut', '一个镜头只收一个人的台词，画外音单算一个声源'],
   ]) {
-    if (id === 'one-speaker-per-cut' && referenceAudit && !script) {
-      add(id, label, true, SKIP_SCRIPT);
-      continue;
-    }
     const failures = referenceAudit ? [
       ...referenceAudit.issues.filter((item) => item.rule === id).map((item) => `${item.location}: ${item.detail}${auditHint(item.evidence)}`),
       ...referenceAudit.skips.filter((item) => item.rule === id).map((item) => `${item.location}: ${item.reason}`),
@@ -1878,7 +1914,8 @@ export function slug(name) {
 const GATE_LABELS_EN = {
   'coverage': 'Every script beat claimed exactly once, in order, contiguous (cut level)',
   'segment-cap': 'Each segment 0 < total ≤ {1}s (the single-generation cap)',
-  'cut-length': 'Every cut {0}–{1}s — the short-drama attention rhythm',
+  'cut-length': 'Every cut {0}–{1}s — may fill the generation segment, timed to its content',
+  'continuous-take': 'Kept scene take: uninterrupted filming within each scene, tail-frame continuation between generation calls',
   'dialogue-fit': 'Dialogue of the claimed beats fits within the cut duration',
   'ep-duration': 'Episode total within ±{0}% of the script\'s target',
   'crowd': 'At most {0} characters on screen per cut; more requires a breakdown note',
@@ -1980,7 +2017,7 @@ const I18N = {
     fmtMin: (sec) => `${Math.floor(sec / 60)} 分 ${Math.round(sec % 60)} 秒`,
     unitSeg: '段',
     unitCut: '切',
-    colophon: '分镜由模型依据剧本切分：段 = 一次生成（≤15 秒），分镜 = 段内 2–5 秒的剪切，每个分镜一张关键帧图。对齐指令、切点时刻、台词、提示词纪律全部由脚本确定性对账。分镜图出图走 codex，环境与角色设定图当参考图。',
+    colophon: '分镜依据剧本与已确认的拍摄形式设计：段 = 一次生成调用，单镜可覆盖整段，生成边界不自动成为切点。对齐指令、切点时刻、台词、提示词纪律由脚本确定性对账。分镜图出图走 codex，环境与角色设定图当参考图。',
   },
   en: {
     langCode: 'en',
@@ -2041,7 +2078,7 @@ const I18N = {
     fmtMin: (sec) => `${Math.floor(sec / 60)} min ${Math.round(sec % 60)} s`,
     unitSeg: 'seg',
     unitCut: 'cuts',
-    colophon: 'Cut by the model from the script: a segment = one generation call (≤15s), a cut = a 2–5s edit inside it, one keyframe per cut. Alignment lines, cut marks, dialogue and prompt discipline are all audited deterministically by the script. Frames are generated through codex with the scene and character sheets as references.',
+    colophon: 'Shots follow the script and approved shooting forms: a segment is one generation call, and one shot may fill it. Generation boundaries do not automatically become edits. Alignment lines, cut marks, dialogue and prompt discipline are audited deterministically. Frames are generated through codex with scene and character sheets as references.',
   },
 };
 

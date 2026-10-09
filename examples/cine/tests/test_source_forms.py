@@ -72,6 +72,40 @@ def test_the_draft_names_a_form_once_and_its_own_wording_wins():
     assert form_gate.source_forms(material) == [POV]
 
 
+def test_per_scene_continuity_is_distinct_from_a_whole_film_take(tmp_path):
+    form = {"form": "scene_one_take", "how": "每次登门是一个完整镜头，换户才切镜"}
+    material = _material([form])
+    assert form_gate.source_forms(material) == [form]
+    (tmp_path / "source-material.json").write_text(
+        json.dumps(material, ensure_ascii=False), encoding="utf-8"
+    )
+    production.init_outline(tmp_path, "登门", 1, 60, "喜剧", "抽核")
+    outline = json.loads((tmp_path / "outline.json").read_text(encoding="utf-8"))
+    assert outline["adaptation"]["forms"] == [{**form, "decision": "", "why": ""}]
+    entry = {**form, "decision": "keep", "why": "保留不中断的当面对话"}
+    assert form_gate.outline_form_errors(_outline(entry), material) == []
+    document = {}
+    outline["adaptation"]["forms"] = [entry]
+    (tmp_path / "outline.json").write_text(json.dumps(outline), encoding="utf-8")
+    production._seed_forms(tmp_path, document)
+    assert document["keptForms"] == [entry]
+
+
+@pytest.mark.parametrize("selected", [[], ["S99"], "S01", None])
+def test_scene_take_scope_cannot_silently_select_nothing(selected):
+    form = {
+        "form": "scene_one_take",
+        "how": "对话不中断",
+        "decision": "keep",
+        "why": "维持主观视角",
+        "sceneIds": selected,
+    }
+    outline = {**_outline(form), "scenes": [{"id": "S01"}]}
+    assert any("sceneIds" in error for error in form_gate.outline_form_errors(outline, None))
+    form["sceneIds"] = ["S01"]
+    assert form_gate.outline_form_errors(outline, None) == []
+
+
 def test_init_seeds_an_undecided_entry_for_every_source_form(tmp_path):
     (tmp_path / "source-material.json").write_text(
         json.dumps(_material([POV]), ensure_ascii=False), encoding="utf-8"

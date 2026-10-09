@@ -121,7 +121,9 @@ eq(stats.dialogue.length, 19, '第 1 集 19 句台词全部对到段和切');
 ok(stats.dialogue.every((d) => /^E01-\d{2}$/.test(d.segment) && d.cut >= 1), '对齐单带段号和切序');
 eq(stats.episodes[0].withLines, 10, '台词段计数——本样例每段都带台词，纯画面收在分镜级');
 eq(paramsOf({}).maxSegmentSeconds, DEFAULT_PARAMS.maxSegmentSeconds, '默认段上限 15 秒');
-eq(paramsOf({}).maxCutSeconds, 5, '默认分镜上限 5 秒');
+eq(paramsOf({}).maxCutSeconds, 15, '默认单镜可覆盖完整 H3 生成段');
+eq(paramsOf({ params: { maxSegmentSeconds: 20 } }).maxCutSeconds, 20, '单镜上限跟随提供商生成段上限');
+eq(paramsOf({ params: { maxSegmentSeconds: 8 } }).maxCutSeconds, 8, '较短的生成段同时限制单镜');
 eq(paramsOf({ params: { maxCutSeconds: 4 } }).maxCutSeconds, 4, '分镜上限可调');
 
 /* ---------------- 台词必须落在认领它的镜头 ---------------- */
@@ -328,8 +330,9 @@ eq(gateReport(FIXTURE, CTX).length, 32, '三十二道门');
   const doc = clone(FIXTURE);
   doc.episodes[0].segments[0].cuts[0].seconds = 6;
   const g = gate(doc, 'cut-length');
-  ok(!g.ok, '分镜超 5 秒被拦——3 秒节奏是硬门');
-  ok(g.detail.includes('E01-01#1'), '点名到切');
+  ok(g.ok, '6 秒镜头不因短剧节奏被迫切开');
+  doc.episodes[0].segments[0].cuts[0].seconds = 16;
+  ok(!gate(doc, 'cut-length').ok, '单镜仍不能超过当前生成段上限');
 }
 {
   const doc = clone(FIXTURE);
@@ -974,7 +977,7 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
 // 质量门面板是报告的一部分：英文界面下门标签也要翻译（阈值由门自己算，原样保留）
 {
   const gateEn = renderHtml(FIXTURE, { ...CTX, lang: 'en' });
-  ok(gateEn.includes('Every cut 2–5s'), 'EN 报告的质量门标签翻译且阈值原样保留');
+  ok(gateEn.includes('Every cut 2–15s'), 'EN 报告的质量门标签翻译且阈值原样保留');
   ok(!gateEn.includes('每个分镜 2–5 秒'), 'EN 报告不再出现中文门标签');
   ok(gateEn.includes('no recipe card library mounted'), 'EN 报告的跳过说明也翻译');
   ok(gateEn.includes('--ref2va not given (keyframe export mode) — gate skipped (treated as passing)'), 'EN 报告明确翻译 Ref2VA 兼容模式跳过');

@@ -20,6 +20,7 @@ FORMS = (
     "direct_address",
     "mockumentary",
     "one_take",
+    "scene_one_take",
     "screen_life",
     "found_footage",
     "split_screen",
