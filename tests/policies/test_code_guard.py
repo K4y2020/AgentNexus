@@ -66,7 +66,7 @@ def test_writing_code_files_is_denied_but_data_is_not() -> None:
 
 
 def test_reading_packaged_source_is_denied_but_docs_are_not() -> None:
-    assert verdict("sys_os_read", path=f"{SKILL}\\pipeline\\jev_gates.py") == "DENY"
+    assert verdict("sys_os_read", path=f"{SKILL}\\pipeline\\jev_client.py") == "DENY"
     assert verdict("sys_os_read", path=f"{SKILL}\\SKILL.md") == "ALLOW"
     # Code the agent's own workspace holds (a tool's input) is not packaged source.
     assert verdict("sys_os_read", path="inputs/source-transcript.json") == "ALLOW"

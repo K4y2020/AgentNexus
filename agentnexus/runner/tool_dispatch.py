@@ -367,8 +367,6 @@ _SEEDANCE_TOOLS = frozenset(
     }
 )
 
-# TypeSafe JEV System One judgment tool — local HTTP call, no server client needed.
-_JEV_TOOLS = frozenset({"cine_jev_judge"})
 _MEMORY_TOOLS = frozenset({"save_teammate_memory"})
 
 # Hindsight long-term memory builtins. Runner-local (like web_search) so that a
@@ -906,7 +904,6 @@ _ALL_LOCAL_TOOLS = (
     | _NIMBLE_EXTRACT_TOOLS
     | _TEAMMATE_DISPATCH_TOOLS
     | _SEEDANCE_TOOLS
-    | _JEV_TOOLS
     | _MEMORY_TOOLS
     | _HINDSIGHT_TOOLS
     | _TIMER_TOOLS
@@ -6785,18 +6782,6 @@ async def _execute_send_to_teammate_tool(
     )
 
 
-async def _execute_jev_tool(args: _JsonObject) -> str:
-    """Execute cine_jev_judge: batch typed questions to TypeSafe System One API."""
-    from agentnexus.seedance.jev import DEFAULT_MODEL, ask_system_one
-
-    result = await ask_system_one(
-        args.get("state"),
-        args.get("questions"),
-        model=str(args.get("model") or DEFAULT_MODEL),
-    )
-    return json.dumps(result, ensure_ascii=False)
-
-
 async def _execute_seedance_tool(
     args: _JsonObject,
     *,
@@ -6991,6 +6976,8 @@ async def _execute_save_teammate_memory_tool(
     server_client: httpx.AsyncClient | None,
     conversation_id: str | None,
     agent_id: str | None,
+    agent_spec: AgentSpec | None,
+    publish_event: Callable[[str, _JsonObject], None] | None,
 ) -> str:
     """Execute save_teammate_memory to persist durable memory to the server."""
     if server_client is None:
@@ -6999,6 +6986,13 @@ async def _execute_save_teammate_memory_tool(
     content = str(args.get("content") or "").strip()
     if not content:
         return json.dumps({"error": "save_teammate_memory requires 'content' string"})
+    if agent_spec is None:
+        return json.dumps(
+            {
+                "error": "memory_policy_unavailable",
+                "message": "No memory was saved: the teammate's configured policy is unavailable.",
+            }
+        )
 
     from agentnexus.runner import app as runner_app
 
@@ -7017,6 +7011,19 @@ async def _execute_save_teammate_memory_tool(
         return json.dumps({"error": "cannot resolve teammate agent_id for this session"})
 
     try:
+        from agentnexus.runtime.teammate_memory import confirm_memory_write, memory_policy
+
+        if memory_policy(agent_spec) == "explicit" and not await confirm_memory_write(
+            content, conversation_id=conversation_id, publish_event=publish_event
+        ):
+            return json.dumps(
+                {
+                    "error": "memory_write_not_approved",
+                    "message": (
+                        "No memory was saved. Continue the task without retrying this write."
+                    ),
+                }
+            )
         post_resp = await server_client.post(
             f"/v1/teammates/{target_agent_id}/memories",
             json={"content": content},
@@ -7276,14 +7283,14 @@ async def execute_tool(
                 agent_spec=agent_spec,
                 task_id=task_id,
             )
-        elif tool_name in _JEV_TOOLS:
-            output = await _execute_jev_tool(args)
         elif tool_name in _MEMORY_TOOLS:
             output = await _execute_save_teammate_memory_tool(
                 args,
                 server_client=server_client,
                 conversation_id=conversation_id,
                 agent_id=agent_id,
+                agent_spec=agent_spec,
+                publish_event=publish_event,
             )
         elif tool_name in _HINDSIGHT_TOOLS:
             output = await _execute_hindsight_tool(

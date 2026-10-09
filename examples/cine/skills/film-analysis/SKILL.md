@@ -51,12 +51,12 @@ rather than inventing facts. A supplied full video is not an invitation to stop 
 
 ## Default: adaptation readiness
 
-### JEV semantic production gates
+### Production checks
 
 For an automatic adaptation, call `production.py next` after each edit. It owns
-seeding, attribution, native checks and advisory JEV review; do not additionally
-run `seed`, `attribute`, `check` or native `validate` commands. The commands below
-are for standalone manual checks and explicitly requested reviews.
+seeding, attribution and native checks; do not additionally run `seed`,
+`attribute`, `check` or native `validate` commands. The commands below are for
+standalone manual checks and explicitly requested reviews.
 
 Jev is TypeSafe's text-only System One model. It may judge compact structured
 creative state, but it cannot see evidence images, video, or audio. Never write
@@ -64,51 +64,26 @@ JEV rows into the visual `reviews/{revision_id}.json` sidecar and never invent
 image receipts from evidence paths. Visual claims still require Cine image
 inspection and real receipts.
 
-In a manual production, after each native artifact is written, run its stage check. The native validator
-decides whether the stage passes; `--jev-advisory` also runs the TypeSafe JEV
-semantic review and adds its findings to the report without blocking:
+In a manual production, after each native artifact is written, run its stage
+check. The native validator decides whether the stage passes:
 
 ```powershell
-python <film-analysis>/pipeline/production.py check <production> --stage outline --jev-advisory
-python <film-analysis>/pipeline/production.py check <production> --stage cast --jev-advisory
-python <film-analysis>/pipeline/production.py check <production> --stage art --jev-advisory
-python <film-analysis>/pipeline/production.py check <production> --stage script --jev-advisory --source-text <production>/source-transcript.txt
-python <film-analysis>/pipeline/production.py check <production> --stage storyboard --jev-advisory
+python <film-analysis>/pipeline/production.py check <production> --stage outline
+python <film-analysis>/pipeline/production.py check <production> --stage cast
+python <film-analysis>/pipeline/production.py check <production> --stage art
+python <film-analysis>/pipeline/production.py check <production> --stage script --source-text <production>/source-transcript.txt
+python <film-analysis>/pipeline/production.py check <production> --stage storyboard
 ```
 
-Always pass `--source-text` on the script stage when adapting existing material.
-Without a source the gate can only ask whether the script is internally coherent,
-which a script that reorders or reassigns the source's lines satisfies while
-still getting the original story wrong. With one, the stage additionally judges
-speaker attribution, reaction order, setup/payoff and overall order fidelity
-against the original, and records `source_compared` in the receipt. When the
-production has a source transcript, the gate compares against the cast-attributed
-transcript the native validator uses, not the raw ASR labels; the receipt's
-`source_baseline` says which one it used. If the baseline's speaker labels are
-unreliable the stage returns `baseline_unusable` with `repair_scope: upstream`
-instead of scoring the script against a corrupt baseline; re-run
-`production.py attribute` (for a raw transcript, `film_transcribe`) and check again.
-
-These gates write `.cine-validation/jev/<stage>-<input-hash>.json` with the
-actual model version, input hashes, typed answers, thresholds, decision and a
-typed scheduler route (`advance_to_*`, `repair_*`, `human_review_*`, or
-`blocked_*`). JEV judges only whether to advance, repair, ask for review or
-block, the repair scope and, for an upstream repair, which document the stage
-reads holds the defect; the next stage itself comes from the stage graph. In
-advisory mode `next_action` is a recommendation: report failed or
-low-confidence findings with the native result,
-repair only when a finding names a concrete defect, and never loop to raise a JEV
-score. A missing `TYPESAFE_API_KEY` or provider error is reported as
-`unavailable`/`error` and does not block. Only when the user explicitly asks for
-a JEV-gated handoff, use `--require-jev` instead: then `failed`, `needs_review`,
-provider errors, missing keys and incomplete answer sets block the stage, and Cine
-follows `next_action` (advance on `advance_to_*`, repair the stage in
-`scheduler.next_stage` on `repair_*` — `stop` there means the defect lies outside
-the stage graph, such as the source transcript — and stop on `human_review_*` or
-`blocked_*`). The review covers story
-causality, role and asset readiness, dialogue/action readability, beat coverage,
-continuity and generation feasibility. Deterministic native validators remain
-authoritative for schema and exact contracts.
+Pass the actual available `--source-text` when adapting existing material; an
+explicit missing, empty or unreadable file blocks validation. This text supports
+cast quote checks, but script speaker/order/coverage checks require a current
+`source-transcript.json` attributed against the cast. Plain text alone records
+`source_comparison.status: "unchecked"` and a review item; never report it as
+source fidelity verified. `checked` means the native comparison ran, with the
+stage result and unresolved attribution items still determining its outcome.
+Deterministic native validators remain authoritative for schema and exact
+contracts.
 
 For optional source-shot metadata, set `CINE_AUTO_JEV=1`. Its output is stored
 under `jev_reviews/` and is explicitly semantic; it never upgrades a source shot
@@ -322,6 +297,9 @@ Timings and shot references are derived from that plan, not hand-written ranges.
     "subtitle_path": "inputs/source.srt or null",
     "asr_path": "inputs/source-transcript.txt or null"
   },
+  "forms": [
+    {"form": "pov", "how": "The camera is the landlord's eyes: only his hand enters the frame; tenants talk to the lens as to him"}
+  ],
   "characters": ["Role and relationships; names unknown where unsupported"],
   "summary": {
     "premise": "Initial situation",
@@ -340,6 +318,15 @@ Timings and shot references are derived from that plan, not hand-written ranges.
   ]
 }
 ```
+
+`forms` names the shooting forms that run through the whole film, not one shot's
+technique: `pov` (the camera is one character's eyes and their face never shows),
+`direct_address` (people talk to the lens as to the audience), `mockumentary`,
+`one_take`, `screen_life` (the story happens on a phone or computer screen),
+`found_footage` (CCTV, dashcam or handheld-recorder footage), `split_screen` or `other`.
+`how` says what it looks like in this film. Write `[]` when the film uses none; the
+shot notes' `viewpoint` per shot is evidence for `pov` and `direct_address`. The
+adaptation outline must keep or drop each form with a reason.
 
 Deliver a whole-film synopsis, character relationships, turning points, ending,
 representative visual references and adaptation opportunities. Separate original

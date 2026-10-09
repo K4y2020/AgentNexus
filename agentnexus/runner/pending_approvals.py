@@ -28,7 +28,22 @@ Lifecycle contract:
 from __future__ import annotations
 
 import asyncio
+from collections import OrderedDict
 from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Literal
+
+ApprovalKind = Literal["policy", "memory"]
+MEMORY_ELICITATION_PREFIX = "elicit_memory_"
+
+
+@dataclass(frozen=True)
+class ApprovalMetadata:
+    """The session and runtime operation that own a verdict."""
+
+    conversation_id: str | None
+    kind: ApprovalKind
+
 
 # Default wait budget for a UI verdict, in seconds. Held at one day
 # (86400s) — matching the deciding policy's default ``ask_timeout``: an ASK
@@ -46,6 +61,10 @@ _DEFAULT_WAIT_SECONDS: float = 86400.0
 # caller that registered it — this module is just the routing table
 # the session-event handler reads to set the result.
 _pending: dict[str, asyncio.Future[bool]] = {}
+_metadata: dict[str, ApprovalMetadata] = {}
+# Keep recent optional replies idempotent without retaining Futures or memory contents.
+_settled_memory: OrderedDict[str, ApprovalMetadata] = OrderedDict()
+_SETTLED_MEMORY_LIMIT = 256
 
 # Per-session count of outstanding ASK verdicts (a session may have more
 # than one parked at once — e.g. parallel tool calls that each tripped a
@@ -80,7 +99,12 @@ def has_any_pending() -> bool:
     return any(not fut.done() for fut in _pending.values())
 
 
-def register(elicitation_id: str) -> asyncio.Future[bool]:
+def register(
+    elicitation_id: str,
+    *,
+    conversation_id: str | None = None,
+    kind: ApprovalKind = "policy",
+) -> asyncio.Future[bool]:
     """
     Create and store a Future for an outstanding ASK verdict.
 
@@ -90,12 +114,20 @@ def register(elicitation_id: str) -> asyncio.Future[bool]:
     silently overwrites the prior entry.
 
     :param elicitation_id: Correlation id, e.g. ``"elicit_abc123"``.
+    :param conversation_id: Owning session, required for session-event resolution.
+    :param kind: Memory consent is optional and does not interrupt the task on decline.
     :returns: The newly created Future. Caller awaits with
         :func:`asyncio.wait_for` to bound the wait.
     """
     fut: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
     _pending[elicitation_id] = fut
+    _metadata[elicitation_id] = ApprovalMetadata(conversation_id, kind)
     return fut
+
+
+def metadata(elicitation_id: str) -> ApprovalMetadata | None:
+    """Return the active or recently settled owner of an approval."""
+    return _metadata.get(elicitation_id) or _settled_memory.get(elicitation_id)
 
 
 def cleanup(elicitation_id: str) -> None:
@@ -109,9 +141,14 @@ def cleanup(elicitation_id: str) -> None:
     :param elicitation_id: Correlation id to drop.
     """
     _pending.pop(elicitation_id, None)
+    owner = _metadata.pop(elicitation_id, None)
+    if owner is not None and owner.kind == "memory":
+        _settled_memory[elicitation_id] = owner
+        while len(_settled_memory) > _SETTLED_MEMORY_LIMIT:
+            _settled_memory.popitem(last=False)
 
 
-def resolve(elicitation_id: str, approved: bool) -> bool:
+def resolve(elicitation_id: str, approved: bool, *, conversation_id: str | None = None) -> bool:
     """
     Set the verdict on a registered Future.
 
@@ -123,6 +160,8 @@ def resolve(elicitation_id: str, approved: bool) -> bool:
     :param elicitation_id: Correlation id from the approval event.
     :param approved: ``True`` on ``action == "accept"``, ``False``
         on decline or other terminal actions.
+    :param conversation_id: Session from the trusted route; a mismatch cannot resolve
+        another session's waiter. Omit only for trusted in-process callers.
     :returns: ``True`` if the Future was unresolved and was set;
         ``False`` if no Future was registered or it was already
         completed (e.g. timed out before the verdict arrived).
@@ -130,8 +169,19 @@ def resolve(elicitation_id: str, approved: bool) -> bool:
     fut = _pending.get(elicitation_id)
     if fut is None or fut.done():
         return False
+    if conversation_id is not None:
+        owner = _metadata.get(elicitation_id)
+        if owner is None or owner.conversation_id != conversation_id:
+            return False
     fut.set_result(approved)
     return True
+
+
+def cancel_session_memory(conversation_id: str) -> None:
+    """Deny pending memory writes when their session is reset, switched or removed."""
+    for elicitation_id, owner in tuple(_metadata.items()):
+        if owner.kind == "memory" and owner.conversation_id == conversation_id:
+            resolve(elicitation_id, False, conversation_id=conversation_id)
 
 
 async def wait_for_user_approval(
@@ -140,6 +190,8 @@ async def wait_for_user_approval(
     conversation_id: str,
     publish_event: Callable[[str, dict[str, object]], None],
     timeout_seconds: float | None = None,
+    request_event: dict[str, object] | None = None,
+    kind: ApprovalKind = "policy",
 ) -> bool:
     """
     Park on a registered Future until the user delivers a verdict.
@@ -168,15 +220,20 @@ async def wait_for_user_approval(
         treating the prompt as refused, e.g. the spec-resolved
         ``ask_timeout`` from the server's pending verdict. ``None``
         falls back to :data:`_DEFAULT_WAIT_SECONDS`.
+    :param request_event: Optional prompt to publish after registering the waiter,
+        so an immediate user response cannot arrive before its Future exists.
+    :param kind: Runtime owner, used to consume optional memory verdicts locally.
     :returns: ``True`` on accept, ``False`` on decline / timeout.
     """
     effective_timeout = _DEFAULT_WAIT_SECONDS if timeout_seconds is None else timeout_seconds
-    fut = register(elicitation_id)
+    fut = register(elicitation_id, conversation_id=conversation_id, kind=kind)
     # Mark the session as awaiting approval for the lifetime of this park
     # so ``has_pending`` reports it. Decremented in ``finally`` on every
     # exit path (verdict, timeout, cancellation) so the flag never leaks.
     _session_pending[conversation_id] = _session_pending.get(conversation_id, 0) + 1
     try:
+        if request_event is not None:
+            publish_event(conversation_id, request_event)
         approved = await asyncio.wait_for(fut, timeout=effective_timeout)
     except asyncio.TimeoutError:
         approved = False
@@ -208,4 +265,6 @@ def reset_for_tests() -> None:
     from one test silently change the behavior of the next.
     """
     _pending.clear()
+    _metadata.clear()
+    _settled_memory.clear()
     _session_pending.clear()

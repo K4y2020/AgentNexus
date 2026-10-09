@@ -118,6 +118,18 @@ ok(castNamesOf({ characters: [] }).length === 0, '空 cast 不炸');
 /* ---------------- 夹具本身 ---------------- */
 
 eq(validateArt(FIXTURE, NAMES).length, 0, '自带样例通过校验（含角色名检查）');
+eq(validateArt(FIXTURE, NAMES, CAST).length, 0, '自带样例与角色参考图媒介一致');
+{
+  const posters = structuredClone(FIXTURE);
+  posters.scenes[0].image.prompt += ' Anime posters curl on the wall.';
+  ok(!validateArt(posters, NAMES, CAST).some((x) => x.includes('媒介')), '墙上的动漫海报是物件，不算媒介');
+  const mixed = structuredClone(FIXTURE);
+  mixed.scenes[0].image.prompt += ' Photorealistic texture.';
+  ok(validateArt(mixed, NAMES).some((x) => x.includes('同时写了几种媒介')), '一张场景参考图写两种媒介被拦');
+  const castAnime = structuredClone(CAST);
+  for (const c of castAnime.characters) c.image.sheet = 'Anime character sheet.';
+  ok(validateArt(FIXTURE, NAMES, castAnime).some((x) => x.includes('与角色参考图')), '场景与角色参考图媒介不同被拦');
+}
 ok(gateReport(FIXTURE, NAMES).every((g) => g.ok), '样例全部质量门通过');
 eq(gateReport(FIXTURE).length, 11, '质量门共 11 道（场景 7 + 道具 4）');
 

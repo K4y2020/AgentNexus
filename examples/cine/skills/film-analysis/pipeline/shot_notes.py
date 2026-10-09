@@ -63,6 +63,8 @@ CAMERAS = (
     "Roll Clockwise",
     "Roll Counterclockwise",
 )
+# Whose eyes the camera is: a bystander's, a character's own (POV), or the audience's.
+VIEWPOINTS = ("observer", "pov", "to_camera")
 # A shot opens with a fade (dip to black) when black runs into its cut: starting at most
 # FADE_LEAD after the cut, ending at most FADE_WINDOW before it. Later black lies inside the shot.
 FADE_WINDOW = 0.35
@@ -89,11 +91,14 @@ camera 是运镜，对比两帧判断，取 Static Shot、Push In、Pull Out、Z
 Pan Left、Pan Right、Truck Left、Truck Right、Tilt Up、Tilt Down、Pedestal Up、
 Pedestal Down、Arc Shot、Tracking Shot、Shake Slightly、Shake Strongly、POV 之一；
 两帧取景没变就是 Static Shot。
+viewpoint 是机位身份，取 observer、pov、to_camera 之一：
+pov＝镜头就是片中某个人的眼睛（画面边缘伸进拿东西的手臂，或人物对着镜头像对眼前的人那样说话、递东西）；
+to_camera＝人物对着镜头向观众说话，但镜头不代表片中任何人；observer＝普通旁观机位。
 仅输出 JSON，所有镜头都必须返回：
 {"new":[{"id":"L2","name":"地下停车场","setting":"车位标线、承重柱、出口标牌"}],
  "people":[{"id":"P1","look":"成年男子，短发，灰色外套","name_caption":null}],
  "shots":[{"n":8,"place":"L2","what":"一人走向停在柱边的汽车","people":["P1"],"crowd":false,
- "size":"wide","camera":"Tracking Shot"}]}"""
+ "size":"wide","camera":"Tracking Shot","viewpoint":"observer"}]}"""
 
 
 class ReplyError(ValueError):
@@ -294,6 +299,7 @@ def _accept(
             # Shot language guides the storyboard; an unreadable value stays unknown.
             "size": item.get("size") if item.get("size") in SIZES else None,
             "camera": item.get("camera") if item.get("camera") in CAMERAS else None,
+            "viewpoint": item.get("viewpoint") if item.get("viewpoint") in VIEWPOINTS else None,
         }
     return list(locations.values()), found, list(persons.values()), problems
 
@@ -403,6 +409,7 @@ def read_shot_notes(media: Path, project: Path, *, gateway=None, frame_cache=Non
                 "teaser": end <= teaser_end,
                 "size": None,
                 "camera": None,
+                "viewpoint": None,
                 "transition": None,
             }
         )
@@ -482,6 +489,7 @@ def read_shot_notes(media: Path, project: Path, *, gateway=None, frame_cache=Non
                     crowd=old["crowd"],
                     size=old.get("size"),
                     camera=old.get("camera"),
+                    viewpoint=old.get("viewpoint"),
                 )
     result = {
         "schema_version": SCHEMA_VERSION,

@@ -456,6 +456,7 @@ def test_material_refuses_an_unwritten_story_draft(tmp_path):
     assert "section_incomplete:B002" in str(failure.value)
     written = {
         **skeleton,
+        "forms": [],
         "characters": ["船夫"],
         "summary": {
             "premise": "雾天渡口。",

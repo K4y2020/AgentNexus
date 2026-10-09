@@ -5,7 +5,7 @@
 
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, readJson, runCli, safeStem, thText } from '../../_shared/cine-common.mjs';
+import { embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, mediumAudit, readJson, runCli, safeStem, thText } from '../../_shared/cine-common.mjs';
 
 /* ------------------------------------------------------------------ */
 /* 画风预设（环境版）                                                    */
@@ -256,7 +256,7 @@ export function gateReport(doc, castNames = null) {
 /* validate                                                            */
 /* ------------------------------------------------------------------ */
 
-export function validateArt(doc, castNames = null) {
+export function validateArt(doc, castNames = null, cast = null) {
   const problems = [];
   const p = (msg) => problems.push(msg);
   if (!doc || typeof doc !== 'object') return ['art.json 不是对象'];
@@ -339,6 +339,23 @@ export function validateArt(doc, castNames = null) {
     if (s?.usage !== undefined) {
       if (!Array.isArray(s.usage?.episodes)) p(`[${label}] usage.episodes 必须是数组`);
       if (!Array.isArray(s.usage?.beats)) p(`[${label}] usage.beats 必须是数组`);
+    }
+  }
+
+  // 每张参考图只能有一种媒介，并与角色参考图一致：分镜按媒介对照两者。
+  const imageText = (img) => [img?.prompt, img?.sheet].filter(Boolean).join(' ');
+  const art = mediumAudit([...scenes, ...(doc.props ?? [])].filter((x) => x?.image)
+    .map((x) => ({ label: x.name ?? x.id ?? '(无名)', text: imageText(x.image) })));
+  if (art.mixed.length) {
+    p(`参考图提示词同时写了几种媒介：${art.mixed.join('；')}。画面里的物件和构图比喻不要用 photograph/anime/cartoon 这类媒介词`);
+  }
+  if (art.media.length > 1) p(`场景/道具参考图媒介不一致：${art.media.join(' / ')}`);
+  const castChars = Array.isArray(cast) ? cast : cast?.characters;
+  if (castChars && art.media.length === 1) {
+    const castMedia = mediumAudit(castChars.flatMap((c) => [c?.image, ...(c?.states ?? []).map((st) => st?.image)])
+      .filter(Boolean).map((img) => ({ label: '', text: imageText(img) }))).media;
+    if (castMedia.length === 1 && castMedia[0] !== art.media[0]) {
+      p(`场景/道具参考图媒介（${art.media[0]}）与角色参考图（${castMedia[0]}）不一致`);
     }
   }
 
@@ -997,7 +1014,8 @@ function main(argv) {
     if (!path) throw new Error(`用法：${cmd} <art.json> [--cast cast.json]`);
     const doc = readJson(path);
     const castPath = flag(rest, '--cast');
-    const names = castPath ? castNamesOf(readJson(castPath)) : null;
+    const cast = castPath ? readJson(castPath) : null;
+    const names = cast ? castNamesOf(cast) : null;
     if (!castPath) console.error('⚠️ 没给 --cast，跳过「提示词不含角色名」检查');
 
     if (cmd === 'checkup') {
@@ -1009,7 +1027,7 @@ function main(argv) {
       return;
     }
 
-    const problems = validateArt(doc, names);
+    const problems = validateArt(doc, names, cast);
     if (problems.length) {
       console.error(`✗ ${problems.length} 处违规：\n`);
       for (const x of problems) console.error('  ' + x);

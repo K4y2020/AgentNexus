@@ -1,7 +1,8 @@
 """Deterministic structure check of a story draft against its temporal plan.
 
 It says whether the draft is *filled in*: the documented summary fields, a
-character list, and one section per plan batch with events and a connection.
+forms list (empty when the film uses none), a character list, and one section
+per plan batch with events and a connection.
 It does not look at image receipts and does not judge whether the reading is
 right — adaptation readiness belongs to ``cine_verify_report``, which checks
 the inspected images. A skeleton written by the indexer fails this check.
@@ -12,6 +13,18 @@ Standard library only, so the MCP server can use it without the JEV SDK.
 from __future__ import annotations
 
 from typing import Any
+
+# The whole-film shooting forms; form_gate.py describes each one.
+FORMS = (
+    "pov",
+    "direct_address",
+    "mockumentary",
+    "one_take",
+    "screen_life",
+    "found_footage",
+    "split_screen",
+    "other",
+)
 
 
 def _text(value: Any) -> bool:
@@ -48,6 +61,14 @@ def story_draft_issues(
         turning_points = summary.get("turning_points")
         if not isinstance(turning_points, list) or not all(_text(t) for t in turning_points):
             issues.append({"reason": "turning_points_list_required"})
+
+    forms = draft.get("forms")
+    if not isinstance(forms, list):
+        issues.append({"reason": "forms_list_required"})
+    elif not all(
+        isinstance(f, dict) and f.get("form") in FORMS and _text(f.get("how")) for f in forms
+    ):
+        issues.append({"reason": "form_entry_invalid"})
 
     characters = draft.get("characters")
     if not isinstance(characters, list) or not characters or not all(_text(c) for c in characters):
@@ -90,7 +111,5 @@ def story_draft_gaps(
     """The same issues as codes, with ``:<batch_id>`` for a plan batch."""
     return [
         f"{issue['reason']}:{issue['batch_id']}" if "batch_id" in issue else issue["reason"]
-        for issue in story_draft_issues(
-            draft, plan, revision_id=revision_id, source_id=source_id
-        )
+        for issue in story_draft_issues(draft, plan, revision_id=revision_id, source_id=source_id)
     ]

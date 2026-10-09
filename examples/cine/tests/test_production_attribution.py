@@ -109,6 +109,19 @@ def test_script_without_transcript_keeps_text_workflow_available(monkeypatch, tm
     result = production.check_stage(directory, "script", source_text=source)
     assert result["status"] == "passed"
     assert "--source" not in result["command"]
+    assert result["input_hashes"][str(source)] == production.digest(source)
+    assert result["source_comparison"] == {
+        "status": "unchecked",
+        "reason": "plain_text_requires_attributed_transcript",
+        "scope": "source_dialogue",
+        "source_text": str(source),
+        "message": (
+            "剧本原稿对账未检查：没有可用的角色归属转录 JSON。"
+            "纯文本不能核验说话人、台词顺序和台词保留；"
+            "请提供与绑定源片一致的 source-transcript.json 后重新归属、校验，"
+            "或人工核对纯文本原稿。"
+        ),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -192,6 +205,95 @@ def _no_validator(monkeypatch):
     monkeypatch.setattr(production.subprocess, "run", refuse)
 
 
+@pytest.mark.parametrize("stage", ["cast", "script"])
+@pytest.mark.parametrize("bad_input", ["missing", "empty", "invalid_utf8", "directory"])
+def test_an_explicit_unusable_source_text_blocks_validation(
+    monkeypatch, tmp_path, stage, bad_input
+):
+    directory = _production(tmp_path)
+    source = tmp_path / "source.txt"
+    if bad_input == "empty":
+        source.write_text(" \n\t", encoding="utf-8")
+    elif bad_input == "invalid_utf8":
+        source.write_bytes(b"\xffbroken")
+    elif bad_input == "directory":
+        source.mkdir()
+    _no_validator(monkeypatch)
+    _no_jev(monkeypatch)
+
+    row = production.check_stage(directory, stage, source_text=source)
+
+    assert row["status"] == "blocked"
+    assert source.name in row["stderr"]
+    assert row["exit_code"] is None
+
+
+def test_missing_transcript_is_an_explicit_review_with_absence_hashes(monkeypatch, tmp_path):
+    directory = _production(tmp_path)
+    _passing_validator(monkeypatch)
+    _no_jev(monkeypatch)
+
+    row = production.check_stage(directory, "script")
+
+    assert row["status"] == "passed"
+    assert row["source_comparison"]["status"] == "unchecked"
+    assert row["source_comparison"]["reason"] == "missing_source_transcript"
+    for candidate in production.source_transcript_candidates(directory):
+        assert row["input_hashes"][str(candidate)] is None
+    assert row["input_hashes"][str(directory / "source-transcript-attributed.json")] is None
+
+
+def test_native_report_does_not_imply_plain_text_source_was_checked(monkeypatch, tmp_path):
+    directory = _production(tmp_path)
+    source = tmp_path / "source.txt"
+    source.write_text("source dialogue", encoding="utf-8")
+    _passing_validator(monkeypatch)
+    _no_jev(monkeypatch)
+
+    report = production.check(directory, "script", source_text=source)
+
+    assert report["status"] == "native_validated"
+    assert "source_dialogue" in report["unverified"]
+    assert report["stages"][0]["source_comparison"]["status"] == "unchecked"
+
+
+def test_original_work_without_a_source_does_not_claim_a_comparison(monkeypatch, tmp_path):
+    directory = _production(tmp_path, mode="original")
+    _passing_validator(monkeypatch)
+    _no_jev(monkeypatch)
+
+    row = production.check_stage(directory, "script")
+
+    assert row["status"] == "passed"
+    assert row["source_comparison"]["status"] == "skipped"
+    assert row["source_comparison"]["reason"] == "original_without_source"
+
+
+@pytest.mark.parametrize("changed_input", ["source_text", "transcript_appears"])
+def test_source_changes_during_plain_text_validation_cannot_pass(
+    monkeypatch, tmp_path, changed_input
+):
+    directory = _production(tmp_path)
+    source = tmp_path / "source.txt"
+    source.write_text("original dialogue", encoding="utf-8")
+    _passing_validator(monkeypatch)
+    _no_jev(monkeypatch)
+
+    def validate(*_args, **_kwargs):
+        if changed_input == "source_text":
+            source.write_text("revised dialogue", encoding="utf-8")
+        else:
+            _write(directory / "source-transcript.json", _transcript(None))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(production.subprocess, "run", validate)
+
+    row = production.check_stage(directory, "script", source_text=source)
+
+    assert row["status"] == "inputs_changed"
+    assert row["source_comparison"]["status"] == "unchecked"
+
+
 @pytest.mark.parametrize(
     ("transcript_fingerprint", "identity", "phrase"),
     [
@@ -268,6 +370,66 @@ def test_the_bound_films_transcript_is_attributed_and_checked(
     assert row["status"] == "passed"
     assert row["transcript_identity"] == identity
     assert "--source" in row["command"]
+    assert row["source_comparison"]["status"] == "checked"
+    assert row["source_comparison"]["transcript_identity"] == identity
+
+
+@pytest.mark.parametrize("exit_code", [0, 1])
+def test_attributed_baseline_keeps_supplied_text_hashed_and_reports_native_result(
+    monkeypatch, tmp_path, exit_code
+):
+    directory = _production(tmp_path, material=_material(), transcript=_transcript(FILM))
+    _stub_jev(monkeypatch)
+    assert production.run_attribution(directory)["status"] == "attributed"
+    source = tmp_path / "raw.txt"
+    source.write_text("[possibly wrong speaker] Hi", encoding="utf-8")
+    _passing_validator(monkeypatch)
+    monkeypatch.setattr(
+        production.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=exit_code, stdout="", stderr=""),
+    )
+
+    row = production.check_stage(directory, "script", source_text=source)
+
+    assert row["status"] == ("passed" if exit_code == 0 else "failed")
+    assert row["source_comparison"]["status"] == "checked"
+    assert row["source_comparison"]["native_exit_code"] == exit_code
+    assert row["source_comparison"]["source_text"] == str(source)
+    assert row["input_hashes"][str(source)] == production.digest(source)
+    source_index = row["command"].index("--source")
+    assert row["command"][source_index + 1] == str(directory / "source-transcript-attributed.json")
+
+
+def test_plain_text_cannot_bypass_a_bound_film_identity_mismatch(monkeypatch, tmp_path):
+    directory = _production(tmp_path, material=_material(), transcript=_transcript(OTHER_FILM))
+    source = tmp_path / "raw.txt"
+    source.write_text("source text", encoding="utf-8")
+    _no_validator(monkeypatch)
+    _no_jev(monkeypatch)
+
+    row = production.check_stage(directory, "script", source_text=source)
+
+    assert row["status"] == "attribution_error"
+    assert row["transcript_identity"] == "source_mismatch"
+
+
+def test_attributed_comparison_is_not_checked_after_validator_timeout(monkeypatch, tmp_path):
+    directory = _production(tmp_path, material=_material(), transcript=_transcript(FILM))
+    _stub_jev(monkeypatch)
+    assert production.run_attribution(directory)["status"] == "attributed"
+    _passing_validator(monkeypatch)
+
+    def timeout(command, **_kwargs):
+        raise production.subprocess.TimeoutExpired(command, 30)
+
+    monkeypatch.setattr(production.subprocess, "run", timeout)
+
+    row = production.check_stage(directory, "script")
+
+    assert row["status"] == "timeout"
+    assert row["source_comparison"]["status"] == "unchecked"
+    assert row["source_comparison"]["reason"] == "native_check_not_completed"
 
 
 @pytest.mark.parametrize(
@@ -522,71 +684,6 @@ def test_a_failed_manifest_write_leaves_the_binding_refused(monkeypatch, tmp_pat
 
 
 # ---------------------------------------------------------------------------
-# JEV judges the script against the cast-attributed transcript
-# ---------------------------------------------------------------------------
-
-
-def _capture_jev_baseline(monkeypatch):
-    from pipeline import jev_gates
-
-    seen = {}
-
-    def gate(stage, _paths, *, source_text, **_kwargs):
-        seen["text"] = Path(source_text).read_text(encoding="utf-8") if source_text else None
-        return {"status": "passed", "stage": stage, "input_sha256": {}, "scheduler": {}}
-
-    monkeypatch.setattr(jev_gates, "run_stage_gate", gate)
-    return seen
-
-
-def test_jev_compares_the_script_with_the_attributed_transcript(monkeypatch, tmp_path):
-    """Raw ASR can credit a line to the wrong character; JEV sees the resolved speaker."""
-    directory = _production(tmp_path, transcript=_transcript(None))
-
-    def attribute(segments, _cast, **_kwargs):
-        return {
-            "model": "mock-jev",
-            "attributions": [
-                {
-                    "id": s["id"],
-                    "text": s["text"],
-                    "speaker": "C01",
-                    "speaker_name": "A",
-                    "speaker_needs_review": True,
-                    "needs_review": True,
-                    "delivery": "voiceover",
-                }
-                for s in segments
-            ],
-        }
-
-    monkeypatch.setattr(attribute_speakers, "attribute_speakers", attribute)
-    _passing_validator(monkeypatch)
-    seen = _capture_jev_baseline(monkeypatch)
-    raw = tmp_path / "raw.txt"
-    raw.write_text("[someone else] Hi\n", encoding="utf-8")
-
-    row = production.check_stage(directory, "script", source_text=raw, advise_jev=True)
-    assert row["status"] == "passed"
-    assert "[A (speaker unsettled, voiceover)] Hi" in seen["text"]
-    assert "someone else" not in seen["text"]
-    assert row["jev"]["source_baseline"]["kind"] == "attributed"
-    assert row["jev"]["source_baseline"]["supplied_source_text"] == str(raw)
-
-
-def test_jev_falls_back_to_the_supplied_text_without_a_transcript(monkeypatch, tmp_path):
-    directory = _production(tmp_path)
-    _passing_validator(monkeypatch)
-    seen = _capture_jev_baseline(monkeypatch)
-    raw = tmp_path / "treatment.txt"
-    raw.write_text("[A] Hi\n", encoding="utf-8")
-
-    row = production.check_stage(directory, "script", source_text=raw, advise_jev=True)
-    assert seen["text"] == "[A] Hi\n"
-    assert row["jev"]["source_baseline"]["kind"] == "source_text"
-
-
-# ---------------------------------------------------------------------------
 # Storyboard asset anchors are checked in code, with the importer's rule
 # ---------------------------------------------------------------------------
 
@@ -671,22 +768,6 @@ def test_attribution_questions_are_split_to_fit_the_request_limit():
     assert response.model == "jev-x"
 
 
-def test_cast_review_sees_the_outline_it_judges_states_against(monkeypatch, tmp_path):
-    from pipeline import jev_gates
-
-    directory = _production(tmp_path)
-    _passing_validator(monkeypatch)
-    seen = {}
-
-    def gate(stage, paths, **_kwargs):
-        seen["paths"] = set(paths)
-        return {"status": "passed", "stage": stage, "input_sha256": {}, "scheduler": {}}
-
-    monkeypatch.setattr(jev_gates, "run_stage_gate", gate)
-    production.check_stage(directory, "cast", advise_jev=True)
-    assert seen["paths"] == {"cast", "outline"}
-
-
 def test_free_adaptation_is_not_compared_line_by_line(monkeypatch, tmp_path):
     """借壳 rewrites the source; attributing its speakers or scoring fidelity is noise."""
     directory = _production(tmp_path, transcript=_transcript(None))
@@ -695,15 +776,15 @@ def test_free_adaptation_is_not_compared_line_by_line(monkeypatch, tmp_path):
     _write(directory / "outline.json", outline)
     _no_jev(monkeypatch)
     _passing_validator(monkeypatch)
-    seen = _capture_jev_baseline(monkeypatch)
     raw = tmp_path / "raw.txt"
     raw.write_text("[A] Hi\n", encoding="utf-8")
 
-    row = production.check_stage(directory, "script", source_text=raw, advise_jev=True)
+    row = production.check_stage(directory, "script", source_text=raw)
     assert row["status"] == "passed"
     assert "--source" not in row["command"]
-    assert row["source_comparison"] == "skipped: free adaptation"
-    assert seen["text"] is None
+    assert row["source_comparison"]["status"] == "skipped"
+    assert row["source_comparison"]["reason"] == "free_adaptation"
+    assert row["input_hashes"][str(raw)] == production.digest(raw)
 
 
 # ---------------------------------------------------------------------------

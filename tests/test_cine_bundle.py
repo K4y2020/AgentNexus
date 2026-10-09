@@ -67,8 +67,10 @@ def test_cine_bundle_opts_into_its_tools():
         "seedance_read_canvas",
         "seedance_edit_canvas",
         "cine_verify_report",
-        "cine_jev_judge",
+        "save_teammate_memory",
     }
+    memory = next(b for b in spec.tools.builtins if b.name == "save_teammate_memory")
+    assert memory.config["policy"] == "explicit"
     advertised = {s["function"]["name"] for s in ToolManager(spec).get_tool_schemas()}
     assert declared <= advertised
 

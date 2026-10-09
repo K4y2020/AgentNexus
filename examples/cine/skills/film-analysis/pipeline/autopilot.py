@@ -37,7 +37,8 @@ FROZEN = Path(".cine-validation") / "frozen"
 REVERTED = Path(".cine-validation") / "reverted"
 DONE_DETAIL = (
     "Delivery is complete: every stage file passed its checks. Report only these files, "
-    "receipts, the canvas receipt when present and the review queue, then stop. Nothing "
+    "receipts, the canvas receipt when present and the review items, then stop. Quote each "
+    "review item as given; do not reword, merge or drop any. Nothing "
     "else needs to run: no canvas import, finalize, check, validate or render, and no "
     "production.json."
 )
@@ -62,6 +63,13 @@ class _Run:
         self.directory = directory
         self.state = _read_json(directory / STATE, {"stages": {}})
         self.queue = _read_json(directory / QUEUE, {"items": []})
+        retired = [item for item in self.queue["items"] if item.get("source") == "jev"]
+        if retired:
+            self.queue["items"] = [
+                item for item in self.queue["items"] if item.get("source") != "jev"
+            ]
+            self.queue.setdefault("retired_items", []).extend(retired)
+            _write_json(directory / QUEUE, self.queue)
 
     def stage(self, name: str) -> dict[str, Any]:
         return self.state["stages"].setdefault(
@@ -93,6 +101,7 @@ class _Run:
             "receipts": {stage: self.stage(stage).get("receipt") for stage in ORDER},
             "detail": DONE_DETAIL,
             **self.summary(),
+            "review": [i for i in self.queue["items"] if i["severity"] == "review"],
         }
         if delivery == "canvas":
             result["canvas_receipt"] = self.state["canvas_synced"].get("receipt")
@@ -106,6 +115,7 @@ def _location_inputs(directory: Path, stage: str) -> list[Path]:
         prod.source_material_path(directory),
         Path(prod.__file__).with_name("location_gate.py"),
         Path(prod.__file__).with_name("performance_gate.py"),
+        Path(prod.__file__).with_name("form_gate.py"),
     ]
 
 
@@ -118,6 +128,7 @@ def _dependencies(directory: Path, stage: str, row: dict[str, Any]) -> dict[str,
 
 def _required_inputs(directory: Path, stage: str) -> list[Path]:
     paths = _location_inputs(directory, stage)
+    paths.append(Path(prod.__file__))
     paths.append(prod.script_path(stage))
     if stage == "script":
         paths.append(directory / "person-map.json")
@@ -136,7 +147,10 @@ def _required_inputs(directory: Path, stage: str) -> list[Path]:
         paths.extend(prod.source_transcript_candidates(directory))
         paths.append(directory / "source-transcript-attributed.json")
     if stage == "storyboard":
-        paths.append(Path(prod.__file__).with_name("shot_state_gate.py"))
+        paths.extend(
+            Path(prod.__file__).with_name(name)
+            for name in ("shot_state_gate.py", "pov_gate.py", "form_gate.py")
+        )
     return paths
 
 
@@ -175,19 +189,15 @@ def _repair_target(stage: str, row: dict[str, Any]) -> str:
 
 def _findings(directory: Path, stage: str, row: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     """Non-blocking review items from a passed stage, keyed by their source."""
-    found: dict[str, list[dict[str, Any]]] = {"jev": [], "attribution": [], "assets": []}
-    jev = row.get("jev")
-    if jev and jev.get("status") != "passed":
-        found["jev"].append(
+    found: dict[str, list[dict[str, Any]]] = {"attribution": [], "assets": []}
+    comparison = row.get("source_comparison")
+    found["source_comparison"] = []
+    if isinstance(comparison, dict) and comparison.get("status") == "unchecked":
+        found["source_comparison"].append(
             {
                 "severity": "review",
-                "reason": f"jev_{jev.get('status')}",
-                "detail": {
-                    "failures": jev.get("failures"),
-                    "error": jev.get("error"),
-                    "next_action": (jev.get("scheduler") or {}).get("next_action"),
-                    "receipt": jev.get("receipt_path"),
-                },
+                "reason": "source_comparison_unchecked",
+                "detail": comparison,
             }
         )
     if stage == "script" and "--source" in row.get("command", []):
@@ -241,6 +251,19 @@ def _findings(directory: Path, stage: str, row: dict[str, Any]) -> dict[str, lis
                 "severity": "review",
                 "reason": "shot_states_unchecked",
                 "detail": {"error": shot_states.get("error") or shot_states.get("errors")},
+            }
+        )
+    pov = row.get("pov") or {}
+    found["pov"] = [
+        {"severity": "review", "reason": item["reason"], "detail": item}
+        for item in pov.get("review") or []
+    ]
+    if pov.get("status") == "unavailable" or pov.get("errors"):
+        found["pov"].append(
+            {
+                "severity": "review",
+                "reason": "pov_unchecked",
+                "detail": {"error": pov.get("error") or pov.get("errors")},
             }
         )
     anchors = row.get("asset_anchors") or {}
@@ -395,7 +418,6 @@ def next_step(
     directory: Path,
     *,
     source_text: Path | None = None,
-    jev: bool = True,
     retry: bool = False,
     text_only: bool = False,
 ) -> dict[str, Any]:
@@ -425,7 +447,7 @@ def next_step(
     if text_only:
         run.state["delivery"] = "text"
     reverted = _restore_frozen(run)
-    result = _decide(run, source_text or _default_source_text(directory), jev=jev, retry=retry)
+    result = _decide(run, source_text or _default_source_text(directory), retry=retry)
     if reverted:
         notice = (
             "Undid changes to "
@@ -444,7 +466,7 @@ def next_step(
     return result
 
 
-def _decide(run: _Run, source_text: Path | None, *, jev: bool, retry: bool) -> dict[str, Any]:
+def _decide(run: _Run, source_text: Path | None, *, retry: bool) -> dict[str, Any]:
     directory = run.directory
     for stage in ORDER:
         record = run.stage(stage)
@@ -468,21 +490,27 @@ def _decide(run: _Run, source_text: Path | None, *, jev: bool, retry: bool) -> d
                 return _escalate(run, stage, "seed_failed", str(exc), None)
         recorded = record.get("passed_inputs") or {}
         model_current = stage != "script" or record.get("vision_model") == prod.vision_model()
+        source_path = str(Path(source_text).resolve()) if source_text is not None else None
+        source_current = stage not in ("cast", "script") or (
+            record.get("source_text") == source_path
+        )
         if (
             model_current
+            and source_current
             and _still_current(recorded)
             and all(str(path) in recorded for path in _required_inputs(directory, stage))
         ):
             continue
-        row = prod.check_stage(directory, stage, source_text, advise_jev=jev)
+        row = prod.check_stage(directory, stage, source_text)
         if row["status"] in TECHNICAL:
-            row = prod.check_stage(directory, stage, source_text, advise_jev=jev)
+            row = prod.check_stage(directory, stage, source_text)
         if row["status"] == "passed":
             if record["failed_versions"]:
                 record.setdefault("history", []).append({"status": "passed"})
             record.update(
                 passed_inputs=_dependencies(directory, stage, row),
                 vision_model=prod.vision_model() if stage == "script" else None,
+                source_text=source_path if stage in ("cast", "script") else None,
                 failed_versions=[],
                 unchanged=0,
                 receipt=_receipt(row),
@@ -603,4 +631,4 @@ def record_canvas_sync(directory: Path, receipt: Path) -> dict[str, Any]:
         ],
     )
     run.save()
-    return next_step(directory, jev=False)
+    return next_step(directory)

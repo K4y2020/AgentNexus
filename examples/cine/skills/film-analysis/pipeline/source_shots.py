@@ -40,6 +40,10 @@ CAMERA_ZH = {
 MAX_SHOTS = 60
 
 
+VIEWPOINT_ZH = {"pov": "主视角", "to_camera": "对镜头说话"}
+VIEWPOINT_EN = {"pov": "first-person POV", "to_camera": "addresses the camera"}
+
+
 def _body_shots(material: dict) -> list[dict]:
     notes = (material or {}).get("source_locations") or {}
     return sorted(
@@ -126,7 +130,8 @@ def script_line(shot: dict, said: list[dict], labels: dict[str, str] | None = No
     """One source shot for the screenwriter: time, framing, action and who says what."""
     size = SIZE_ZH.get(shot.get("size"), "")
     camera = CAMERA_ZH.get(shot.get("camera"), shot.get("camera") or "")
-    framing = "·".join(part for part in (size, camera) if part)
+    viewpoint = VIEWPOINT_ZH.get(shot.get("viewpoint"), "")
+    framing = "·".join(part for part in (size, camera, viewpoint) if part)
     head = f"{shot['start']:.1f}s" + (f" {framing}" if framing else "")
     if shot.get("transition") == "fade":
         head += "·渐黑入"
@@ -138,6 +143,8 @@ def storyboard_line(shot: dict, said: list[dict], labels: dict[str, str] | None 
     """One source shot in the storyboard's own vocabulary, with the lines it carries."""
     parts = [f"{shot['start']:.1f}–{shot['end']:.1f}s"]
     parts.extend(str(shot[key]) for key in ("size", "camera") if shot.get(key))
+    if shot.get("viewpoint") in VIEWPOINT_EN:
+        parts.append(VIEWPOINT_EN[shot["viewpoint"]])
     if shot.get("transition") == "fade":
         parts.append("fade in")
     lines = "".join(f"「{row['text'].strip()}」" for row in said)

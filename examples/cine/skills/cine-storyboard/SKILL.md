@@ -122,6 +122,8 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 \
 4. **光影与材质**：从已确认美术设定选择有来源的主光、背景亮度与色彩关系，保持跨镜方向和材质连续。
 5. **表演与声音**：给决定和反应留多久，何处用环境声、画外音或安静衔接。每段 `non_diegetic_music` 固定为 `N/A`，背景配乐由用户在后期剪辑时统一添加；角色听得到的收音机、现场演奏等音乐仍在对应镜头中交代声源和动作。
 
+大纲保留的拍摄形式写在底稿顶层的 `keptForms`。保留第一人称主视角（`pov`）时，`holder` 那个人就是镜头：提示词明确从他的眼睛看出去，他只以自己的手、手臂或腿进画；从外面拍他的背影仍是第三人称。他的定妆图可以作为 Subject 引用来保持手和衣袖一致，但 `[Shot k]` 段落里不写镜头拍摄他的脸、表情和正面，别人看向镜头时 `eyelineTarget` 填 `camera`。`production.py check` 会逐镜检查实际提示词，包括人物列表没有列出 holder 的镜头；明确露脸或外部机位会被拦下，模糊机位和未完成的检查列入审核报告。文本检查通过仍需生成片段验证实际效果。
+
 改编原片时，底稿每场的 `seedScenes[].sourceShots` 列出这场戏对应原片地点（outline 场次的 `from`）的镜头：时间、景别、运镜、渐黑转场（`fade in`）、画面和这一镜里的台词，用词与本 skill 的枚举一致；全片镜头在 `production/source-material.json` 的 `source_locations.shots`。原片里承担作用的镜头语言要在对应的戏里保留或换成更好的手法，不能整场退化成固定中景，例如：人物登场的跟拍或上摇、揭示用的推拉、反转处的硬切、渐黑带过的时间跳跃、交代空间的大全景。不逐镜照搬，原片镜头的时长也不照搬；改编改动过的戏按新剧情设计。
 
 随后把这些选择落实到 `frame` 的构图/状态、`camera` 的运动选择和每段视频提示词的动作/声源中。
@@ -132,7 +134,7 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 \
 一致性按叙事范围约束：同一身份不等于永不换装，同一物件不等于永不换手，同一场景不等于全片不能换场。区分需保持的身份特征、同场空间规则和剧情批准的状态变化；参考图状态不匹配时明确差异，不能谎称已验证。
 关键物件跨镜换手、重新出现或成为结尾笑点时，回查上一镜持有者、交接依据及本镜起始状态。合理省略可保留；缺失的关键交接只补最短必要线索，不自动拆成动作工序。
 匹配剪辑只精确锁定承担连接作用的构图、物件位置、视角或运动方向；注明跨切点允许改变的时间、环境和人物状态。其他表演仍自然展开，不把局部匹配要求扩成全片冻结。
-连续性账本不能只填字段：`frame` 写了抓取、转身、递交、行走、说话等可见动作时，`actionStates` 必须记录真实 `in/out`，不得用 `idle → idle` 充数；每个画内人物还必须用 `emotionStates.in/out` 记录可观察的呼吸、姿态、眼神、下颌、语速或表情状态，不能只写抽象情绪词；状态跨镜变化时填写 `emotionCarryReason`。`frame` 写了明确视线时，必须填写 `eyelineTarget`。证据不足才使用 `actionEvidenceReason` / `eyelineUnknownReason` 标记待确认。
+连续性账本不能只填字段：`frame` 写了抓取、转身、递交、行走、说话等可见动作时，`actionStates` 必须记录真实 `in/out`，不得用 `idle → idle` 充数；每个画内人物还必须用 `emotionStates.in/out` 记录可观察的呼吸、姿态、眼神、下颌、语速或表情状态，不能只写抽象情绪词；状态跨镜变化时填写 `emotionCarryReason`。`frame` 写了明确视线时，必须填写 `eyelineTarget`：本镜人物/道具 id、`camera`（看镜头）、`offscreen`，或带方向的 `offscreen_left` / `offscreen_right`。证据不足才使用 `actionEvidenceReason` / `eyelineUnknownReason` 标记待确认。
 
 #### 前三秒钩子
 
@@ -199,7 +201,7 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 \
 
 交付前核对：全片风格句与每切 frame 跟 cast/art 一致；同场相邻段都已承接，每个镜头只有一人开口；任务前缀与逐标签 retention 完整；引用说话人、独立声源和画外音格式正确；每段每个开口的角色写了角色卡声音，每句写了说法；认领台词逐字且语言标签一致；切点和每镜运镜词对账；同步声音在对应镜头，overall_soundscape 只写全段环境底声，non_diegetic_music 固定 N/A。
 
-切完把 `seedScenes` 删掉。
+切完把 `seedScenes` 和 `keptForms` 删掉。
 
 ### Step 3 — 校验 ⛔ 不能跳
 

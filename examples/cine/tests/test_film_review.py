@@ -172,6 +172,7 @@ def _complete_draft(characters=("老周",)):
         "source_id": "src",
         "revision_id": "r1",
         "dialogue_provenance": {"status": "unverified", "source_path": None},
+        "forms": [],
         "characters": list(characters),
         "summary": {
             "premise": "雾天渡口，老船夫照常开船",

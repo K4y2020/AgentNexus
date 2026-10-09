@@ -98,3 +98,40 @@ export const gateTextFor = (labelsEn, skipsEn) => (g, lang) => {
   const label = en ? en.replace(/\{(\d)\}/g, (m, i) => nums[Number(i)] ?? m) : g.label;
   return { label, detail: skipsEn[g.detail] ?? g.detail };
 };
+
+/* ------------------------------------------------------------------ */
+/* artwork medium                                                      */
+/* ------------------------------------------------------------------ */
+
+// Words that name a medium but describe composition, negation or an object in the scene.
+const NOT_A_MEDIUM = [
+  /\b(?:like|as)\s+(?:an?\s+)?(?:ID|passport|portrait|mugshot|yearbook)\s+photo(?:graph)?\b/gi,
+  /\b(?:no|not|without|avoid)\s+(?:photorealistic|photographic|live[ -]action|3d\s+render(?:ing)?)\b/gi,
+  /\b(?:anime|manga|cartoon)\s+(?:posters?|figur(?:es|ines?)|stickers?|merch(?:andise)?|prints?|wallpapers?|dolls?|plush(?:ies|es)?|keychains?|books?|magazines?|cards?|illustrations?)\b/gi,
+  /\b(?:framed|family|old|wedding|polaroid|printed)\s+photo(?:graph)?\b/gi,
+  /\bphoto\s+(?:frames?|albums?|booths?|wall)\b/gi,
+];
+
+/** The artwork medium families a prompt names: live-action, anime, cartoon, painted, 3d. */
+export function artworkMedium(text) {
+  const value = NOT_A_MEDIUM.reduce((rest, pattern) => rest.replace(pattern, ''), String(text ?? ''));
+  const families = [];
+  if (/\blive[ -]action\b|\bphoto(?:realistic|graph(?:ic|y)?)\b|真人实拍|照片写实/i.test(value)) families.push('live-action');
+  if (/\banime\b|\bghibli\b|吉卜力|手绘动画/i.test(value)) families.push('anime');
+  else if (/\bcartoon\b|\b2d\s+animation\b|卡通|二维动画/i.test(value)) families.push('cartoon');
+  else if (/\bpainterly\b|\bhand[ -]painted\b|\b(?:oil|watercolou?r)\s+paint(?:ing|ed)\b|绘画风|油画|水彩/i.test(value)) families.push('painted');
+  if (/\b3d\s+(?:render|animation)\b|三维动画/i.test(value)) families.push('3d');
+  return families;
+}
+
+/** Reference images whose prompt names more than one medium, and the media all of them name. */
+export function mediumAudit(references) {
+  const mixed = [];
+  const media = new Set();
+  for (const { label, text } of references) {
+    const families = artworkMedium(text);
+    if (families.length > 1) mixed.push(`${label}（${families.join('/')}）`);
+    else if (families.length === 1) media.add(families[0]);
+  }
+  return { mixed, media: [...media] };
+}

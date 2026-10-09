@@ -419,8 +419,8 @@ export function gateReport(doc, ctx = {}) {
   }
 
   // ---- 人物在场逻辑检查 (dialogue-causality) ----
-  // 只做确定性的在场对账。台词之间的因果是否成立是语义判断，归 JEV 剧本门
-  // （causal_continuity）——按某个故事的台词关键词写死的规则，换一个故事就误拦或漏拦。
+  // 只做确定性的在场对账。台词之间的因果是否成立是语义判断，不用关键词规则：
+  // 按某个故事的台词关键词写死的规则，换一个故事就误拦或漏拦。
   const nameIndex = characterNameIndex(ctx);
 
   for (const ep of eps) {

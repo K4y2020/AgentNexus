@@ -41,8 +41,7 @@ python <film-analysis>/pipeline/production.py next <output>
 After `init`, an automatic run asks the controller for one action at a time and
 does only that. The controller walks outline → cast → art → script → storyboard,
 seeds a missing stage, binds the visual people table to cast cards in
-`person-map.json`, and runs each stage's check with the
-advisory JEV review. A stage that passed is not rechecked until one of its inputs
+`person-map.json`, and runs each stage's check. A stage that passed is not rechecked until one of its inputs
 changes. After writing or repairing the named file, call `next` again; do not run
 separate `seed`, `attribute`, `check` or native `validate` commands during this
 automatic loop. The manual commands below are for standalone work. It returns:
@@ -66,11 +65,13 @@ automatic loop. The manual commands below are for standalone work. It returns:
   run `next` again. Do not change text or evidence to make an uncertainty disappear.
 - `done` — the current storyboard is on the canvas and no used faithful line has
   an unresolved speaker. With `delivery: text` nothing was imported: it lists the
-  stage files and each validator's pass line (`receipts`) to quote. Stop there;
+  stage files and each validator's pass line (`receipts`) to quote. Its `review`
+  list holds every open review item; quote each as given, without rewording,
+  merging or dropping any. Stop there;
   finalize and production.json belong to the manual flow below.
 
 `review-queue.json` beside the production lists blocking escalations and
-review items: advisory JEV findings and unresolved evidence. Used unsettled speakers
+review items such as unresolved evidence. Used unsettled speakers
 stop faithful completion through `human_review_speakers`, even with a prior canvas
 receipt. Unused unsettled lines do not stop it. Review items never trigger creative
 edits. State lives in `.cine-validation/autopilot.json`.
@@ -127,10 +128,7 @@ Seeds retain upstream IDs through existing Node scripts and never overwrite
 an existing canonical, named or explicitly bound output. With a manifest, declare
 the target path before seeding; seeding does not update hashes or approval pins.
 Use a new production revision directory for replacement seeds.
-Use `check --stage outline|cast|art|script|storyboard` for a focused check. Add
-`--jev-advisory` to run the matching TypeSafe semantic review after the native
-validator and report it without blocking; `--require-jev` makes that review a
-blocking gate and is used only when the user asks for a JEV-gated handoff.
+Use `check --stage outline|cast|art|script|storyboard` for a focused check.
 
 `check` executes native validators with relevant upstream inputs. `finalize` is
 the only routine path that refreshes artifact hashes and dependency pins: it
@@ -145,35 +143,24 @@ not invented original-film dialogue. Never manufacture `inputs/source.txt` from 
 story draft or sparse screenshots and label it a transcript. Store machine speech
 recognition as `inputs/source-transcript.txt` with `dialogue_provenance.status=asr`;
 store a newly written adaptation treatment under a clearly different name and label.
-`--jev-advisory` and `--require-jev` write a receipt under `.cine-validation/jev/`
-with the actual JEV model version, input hashes, typed answers and thresholds.
-In advisory mode the report's `jev_status` is `passed` or `advisory_findings` and
-the stage status comes from the native validator alone. With `--require-jev`,
-missing credentials, provider errors, incomplete answers, low-confidence answers
-and failed judgments block the selected stage. JEV receives structured text only;
-it does not replace image/audio/video inspection. `native_validated` does not authorize generation
+`native_validated` does not authorize generation
 or establish visual quality/provider compatibility. Reports are not authorization
 tokens: every check re-executes the tools rather than reusing an old report.
 
-Pass `--source-text` alongside the JEV flag so the script review judges the
-adaptation against the original rather than on its own internal coherence. With
-a source supplied, the script stage also runs source-comparison questions
-(speaker attribution, reaction order, setup/payoff, overall order fidelity) and
-records `source_compared: true` in the receipt. Without it, a script can
-reshuffle or reassign the source's lines and still read as coherent, because
-nothing in the state contradicts it. When `source-transcript-attributed.json`
-is in use, JEV is given that cast-attributed text instead of the raw ASR labels,
-so a line the attribution moved to its real speaker is not scored as unfaithful;
-`source_baseline` in the receipt records the choice.
-
-The source-comparison questions are only meaningful if the baseline is
-trustworthy, so the gate first asks whether each bracketed speaker label covers
-exactly one character. When that check fails the stage reports
-`baseline_unusable` with `repair_scope: upstream` and does not issue a fidelity
-verdict — a script must not be marked unfaithful for declining to reproduce a
-transcription error. That verdict means re-run `production.py attribute` (for a
-raw transcript, the `film_transcribe` tool) before re-checking; a segment mashing
-several speakers into one label will otherwise mislead every downstream stage.
+Pass the actual available `--source-text` when adapting existing material.
+An explicitly supplied file must exist, be readable UTF-8 and contain text;
+its hash is pinned even when an attributed transcript supplies the comparison.
+Plain text supports cast quote checks, but cannot supply the script validator's
+speaker/order/coverage baseline. Without a usable `source-transcript.json`, the
+script row records `source_comparison.status: "unchecked"`, and automatic
+production carries its explanation into the review queue and completion report.
+Native schema validation may still pass; do not call that source fidelity verified.
+Provide a transcript belonging to the bound film and rerun attribution/checks,
+or review the plain-text source manually. For `借壳`, source dialogue comparison
+is explicitly skipped; original productions without source inputs also skip it.
+`source_comparison.status: "checked"` means the native comparison completed,
+not that every source line or artistic choice was independently verified: consult
+the stage result and any unresolved attribution or source-review items.
 
 The storyboard stage checks in code, with the canvas importer's own rule, that
 every referenced character has an `image.sheet` and every scene an `image.prompt`.
@@ -240,8 +227,8 @@ Three gates depend on it:
   be declared in that scene's cast list. It deliberately ignores names in
   dialogue, since a line may address or discuss someone who is not present
   (「听见没？老周哥这一嗓子」 does not put 老周 in the scene). Whether one line
-  follows causally from the last is a semantic question left to the JEV script
-  gate (`causal_continuity`), not to keyword rules.
+  follows causally from the last is a semantic question, not one for keyword
+  rules.
 - `performance` (faithful mode only; run by `production.py` after the native
   validator passes): each source line carries the emotion its own frames show
   (`performance`, read by `film_transcribe`; see below). The shared visual speaker

@@ -224,6 +224,12 @@ eq(gateReport(FIXTURE, CTX).length, 32, '三十二道门');
   const eyeIssues = continuityReport(eyeBreak);
   ok(eyeIssues.advisories.join('；').includes('eyelineBreakReason'), 'B：视线目标未在下一镜兑现时提示说明切断原因');
 
+  const sideOff = structuredClone(bad);
+  sideOff.episodes[0].segments[0].cuts[0].continuity.eyelineTarget = 'offscreen_left';
+  ok(!continuityReport(sideOff).detail.includes('不在本镜人物/道具中'), 'B：看向画外一侧（offscreen_left）是合法视线目标');
+  sideOff.episodes[0].segments[0].cuts[0].continuity.eyelineTarget = 'window';
+  ok(continuityReport(sideOff).detail.includes('可填本镜人物/道具 id、camera、offscreen'), 'B：非法视线目标的报错列出可填的值');
+
   const proseGap = structuredClone(bad);
   proseGap.episodes[0].segments[0].cuts[0].frame =
     'medium shot of C01 seizing C02 wrist while C02 looks toward C01';

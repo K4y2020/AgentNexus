@@ -166,6 +166,7 @@ from agentnexus.runtime.prompt import (
     build_instructions_nullable,
     raw_author_instructions,
 )
+from agentnexus.runtime.teammate_memory import memory_instructions, memory_policy
 from agentnexus.server.schemas import (
     BackgroundSessionTitleRequest,
     BackgroundSessionTitleResponse,
@@ -3014,23 +3015,28 @@ def create_runner_app(
         return instructions
 
     _SESSION_MEMORIES_INSTRUCTIONS_TTL_SECONDS = 20.0
-    _session_memories_instructions_cache: dict[str, tuple[float, str | None]] = {}
+    _session_memories_instructions_cache: dict[str, tuple[float, str, str | None]] = {}
 
     async def _session_teammate_memory_instruction(
         _session_id: str,
         agent_id: str | None,
+        spec: AgentSpec,
     ) -> str | None:
         """Load durable teammate memories for the session agent."""
         if not agent_id:
             return None
+        policy = memory_policy(spec)
         cached = _session_memories_instructions_cache.get(agent_id)
         if cached is not None:
-            cached_at, instruction = cached
-            if time.monotonic() - cached_at <= _SESSION_MEMORIES_INSTRUCTIONS_TTL_SECONDS:
+            cached_at, cached_policy, instruction = cached
+            if (
+                cached_policy == policy
+                and time.monotonic() - cached_at <= _SESSION_MEMORIES_INSTRUCTIONS_TTL_SECONDS
+            ):
                 return instruction
             _session_memories_instructions_cache.pop(agent_id, None)
 
-        instruction: str | None = None
+        instruction: str | None = memory_instructions([], policy) if policy == "explicit" else None
         try:
             resp = await server_client.get(f"/v1/teammates/{agent_id}/memories", timeout=5.0)
             if resp.status_code == 200:
@@ -3041,27 +3047,11 @@ def create_runner_app(
                     for m in memories
                     if isinstance(m, dict) and m.get("content", "").strip()
                 ]
-                fallback_line = "- (No persistent memories recorded yet)"
-                formatted = "\n".join(f"- {line}" for line in lines) if lines else fallback_line
-                mem_rules = (
-                    "AUTOMATIC MEMORY RECORDING:\n"
-                    "You have the `save_teammate_memory` tool. Actively record memories when:\n"
-                    "1. User states explicit preferences or habits ('记住...', '以后都...').\n"
-                    "2. You establish key conventions, paths, or architectural rules.\n"
-                    "3. The user corrects a recurring mistake or gives domain context.\n"
-                    "Call `save_teammate_memory(content=...)` to persist for future sessions.\n"
-                )
-                instruction = (
-                    "<teammate_memories>\n"
-                    "Persistent memories remembered for this teammate across sessions:\n"
-                    f"{formatted}\n\n"
-                    f"{mem_rules}"
-                    "</teammate_memories>"
-                )
+                instruction = memory_instructions(lines, policy)
         except Exception:  # noqa: BLE001
             _logger.debug("Failed to load teammate memories for %s: %s", agent_id, exc_info=True)
 
-        _session_memories_instructions_cache[agent_id] = (time.monotonic(), instruction)
+        _session_memories_instructions_cache[agent_id] = (time.monotonic(), policy, instruction)
         return instruction
 
     async def _session_runtime_cwd(session_id: str) -> Path | None:
@@ -4021,6 +4011,7 @@ def create_runner_app(
 
     @app.delete("/v1/sessions/{session_id}")
     async def delete_session(session_id: str) -> JSONResponse:
+        pending_approvals.cancel_session_memory(session_id)
         turn_task = _active_turns.pop(session_id, None)
         if turn_task is not None and isinstance(turn_task, asyncio.Task):
             turn_task.cancel()
@@ -6751,7 +6742,9 @@ def create_runner_app(
             _authored_bg = raw_author_instructions(cached_spec) is not None
             _bg_framework = list(await _session_behavior_instructions(conv))
             _current_agent_id = _session_agent_ids.get(conv) or _dispatched_agent_id
-            _memory_inst = await _session_teammate_memory_instruction(conv, _current_agent_id)
+            _memory_inst = await _session_teammate_memory_instruction(
+                conv, _current_agent_id, cached_spec
+            )
             if _memory_inst:
                 _bg_framework.append(_memory_inst)
             if harness_name in _GATED_COMPOSED_INSTRUCTION_HARNESSES:
@@ -8268,7 +8261,19 @@ def create_runner_app(
         if body_type == "approval":
             _data = body.get("data") or body
             _elicit_action = _data.get("action", "")
-            pending_approvals.resolve(_data.get("elicitation_id", ""), _elicit_action == "accept")
+            _elicitation_id = _data.get("elicitation_id", "")
+            if not isinstance(_elicitation_id, str) or not _elicitation_id:
+                return JSONResponse(status_code=400, content={"error": "invalid_approval_id"})
+            _owner = pending_approvals.metadata(_elicitation_id)
+            if _owner is not None and _owner.conversation_id != conversation_id:
+                return JSONResponse(status_code=404, content={"error": "approval_not_found"})
+            pending_approvals.resolve(
+                _elicitation_id, _elicit_action == "accept", conversation_id=conversation_id
+            )
+            if _owner is not None and _owner.kind == "memory":
+                return Response(status_code=204)
+            if _elicitation_id.startswith(pending_approvals.MEMORY_ELICITATION_PREFIX):
+                return JSONResponse(status_code=404, content={"error": "approval_not_found"})
             if _elicit_action == "decline":
                 try:
                     _int_client = await process_manager.get_client(conversation_id, "any")
@@ -10117,6 +10122,7 @@ def create_runner_app(
         on an in-conversation agent switch, so the eviction scope cannot
         diverge between the two paths.
         """
+        pending_approvals.cancel_session_memory(session_id)
         _clear_session_agent_caches(session_id, new_agent_id)
         if process_manager is not None:
             await process_manager.release(session_id)
@@ -10152,6 +10158,7 @@ def create_runner_app(
 
     @app.post("/v1/sessions/{session_id}/reset-state")
     async def reset_session_state(session_id: str) -> JSONResponse:
+        pending_approvals.cancel_session_memory(session_id)
         _codex_terminal_ensure_locks.pop(session_id, None)
         _claude_terminal_ensure_locks.pop(session_id, None)
         _pi_terminal_ensure_locks.pop(session_id, None)

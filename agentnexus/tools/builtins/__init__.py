@@ -35,7 +35,6 @@ from agentnexus.tools.builtins.async_inbox import (
     SysCancelAsyncTool,
     SysReadInboxTool,
 )
-from agentnexus.tools.builtins.cine_jev_judge import CineJevJudgeTool
 from agentnexus.tools.builtins.cine_verify_report import CineVerifyReportTool
 from agentnexus.tools.builtins.list_comments import ListCommentsTool
 from agentnexus.tools.builtins.list_models import SysListModelsTool
@@ -80,7 +79,6 @@ from agentnexus.tools.builtins.web_search import WebSearchTool
 __all__ = [
     "BUILTIN_NAMES",
     "INSTANTIABLE_BUILTINS",
-    "CineJevJudgeTool",
     "CineVerifyReportTool",
     "ListCommentsTool",
     "LoadSkillTool",
@@ -271,7 +269,6 @@ _BUILTIN_REGISTRY: dict[str, _BuiltinFactory | None] = {
     "seedance_read_canvas": lambda _config: SeedanceReadCanvasTool(),
     "seedance_edit_canvas": lambda _config: SeedanceEditCanvasTool(),
     "cine_verify_report": lambda _config: CineVerifyReportTool(),
-    "cine_jev_judge": lambda _config: CineJevJudgeTool(),
     # Framework-owned: need runtime context. ``web_fetch`` is
     # constructed by ToolManager before reaching this registry.
     # ``list_comments`` and ``update_comment`` are auto-registered by

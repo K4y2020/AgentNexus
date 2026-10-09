@@ -312,6 +312,14 @@ const hits = (cast, keyword) => validateCast(cast, SOURCE).filter((p) => p.inclu
 
 eq(validateCast(CAST, SOURCE).length, 0, '自带样例通过全部校验');
 {
+  const mixed = clone();
+  mixed[0].image.sheet += ' Photorealistic skin detail.';
+  eq(hits(mixed, '同时写了几种媒介'), 1, '一张参考图同时写两种媒介被拦');
+  const simile = clone();
+  simile[0].image.sheet += ' The bottom edge is cut straight like an ID photograph.';
+  eq(hits(simile, '媒介'), 0, '「像证件照」是构图比喻，不算媒介');
+}
+{
   const stateful = clone();
   stateful[0].states = [{
     id: 'home_morning', label: '卧室晨间家居服',

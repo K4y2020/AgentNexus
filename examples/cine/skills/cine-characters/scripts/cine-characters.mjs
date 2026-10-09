@@ -5,7 +5,7 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { esc, flag, r1, readJson, runCli, safeStem } from '../../_shared/cine-common.mjs';
+import { esc, flag, mediumAudit, r1, readJson, runCli, safeStem } from '../../_shared/cine-common.mjs';
 
 /* ------------------------------------------------------------------ */
 /* chunk                                                               */
@@ -548,6 +548,18 @@ export function validateCast(characters, sourceText, lang = DEFAULT_LANG, style 
   if (!Array.isArray(characters) || characters.length === 0) {
     return ['cast 为空或不是数组'];
   }
+
+  // --- 每张参考图只能有一种媒介，全剧一致 ---
+  // 分镜按媒介对照参考图；参考图自己写了两种媒介，分镜怎么改都对不上。
+  const { mixed, media } = mediumAudit(characters.flatMap((c) =>
+    [c?.image, ...(c?.states ?? []).map((st) => st?.image)].filter(Boolean).map((image, i) => ({
+      label: `${c?.name ?? '(无名)'}${i ? ` 状态${i}` : ''}`,
+      text: [image.prompt, image.sheet].filter(Boolean).join(' '),
+    }))));
+  if (mixed.length) {
+    problems.push(`参考图提示词同时写了几种媒介：${mixed.join('；')}。构图比喻和画面里的物件不要用 photograph/anime/cartoon 这类媒介词`);
+  }
+  if (media.length > 1) problems.push(`同剧角色参考图媒介不一致：${media.join(' / ')}`);
 
   // --- 同剧角色画风必须一致 ---
   // 这是整批图"像不像同一部片"的底线。每个角色的 image.style 给人读的画风

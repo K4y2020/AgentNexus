@@ -5,7 +5,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, r1, readJson, runCli, safeStem } from '../../_shared/cine-common.mjs';
+import { artworkMedium, embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, r1, readJson, runCli, safeStem } from '../../_shared/cine-common.mjs';
 
 /* ------------------------------------------------------------------ */
 /* 常量                                                                */
@@ -415,18 +415,7 @@ function auditLabels(text) {
   }).map((match) => match[0]);
 }
 
-function auditMedium(text) {
-  const value = h3Remainder(text)
-    .replace(/\b(?:framed|composed|posed|cropped)\s+(?:like|as)\s+(?:an?\s+)?(?:ID|passport|portrait)\s+photograph\b/gi, '')
-    .replace(/\b(?:no|not|without|avoid)\s+(?:photorealistic|photographic|live[ -]action|3d\s+render(?:ing)?)\b/gi, '');
-  const families = [];
-  if (/\blive[ -]action\b|\bphoto(?:realistic|graph(?:ic|y)?)\b|真人实拍|照片写实/i.test(value)) families.push('live-action');
-  if (/\banime\b|\bghibli\b|吉卜力|手绘动画/i.test(value)) families.push('anime');
-  else if (/\bcartoon\b|\b2d\s+animation\b|卡通|二维动画/i.test(value)) families.push('cartoon');
-  else if (/\bpainterly\b|\bhand[ -]painted\b|\b(?:oil|watercolou?r)\s+paint(?:ing|ed)\b|绘画风|油画|水彩/i.test(value)) families.push('painted');
-  if (/\b3d\s+(?:render|animation)\b|三维动画/i.test(value)) families.push('3d');
-  return families;
-}
+const auditMedium = (text) => artworkMedium(h3Remainder(text));
 
 function auditMusic(prompt) {
   const match = /(?:non_diegetic_music:|非叙事配乐：)([\s\S]*)/.exec(prompt);
@@ -845,7 +834,10 @@ export function auditStoryboard(board, ctx = {}) {
         else {
           evaluated(styleRule);
           if (videoMedium.length !== 1 || referenceMedium.length !== 1 || videoMedium[0] !== referenceMedium[0]) {
-            issue(styleRule, `${sid} <> ${reference.location}`, 'Explicit reference and video medium markers conflict', { video: videoMedium, reference: referenceMedium });
+            const upstream = referenceMedium.length > 1 && !reference.location.endsWith('.frame');
+            issue(styleRule, `${sid} <> ${reference.location}`, upstream
+              ? 'The cast/art reference itself names more than one medium; it is fixed in cast.json/art.json, not in the storyboard'
+              : 'Explicit reference and video medium markers conflict', { video: videoMedium, reference: referenceMedium });
           }
         }
       }
@@ -1140,6 +1132,8 @@ function reversedMotion(a, b) {
 // shot's visible action.  A no-op ledger must not be allowed to contradict it.
 const FRAME_ACTION_RE = /\b(?:seiz(?:es|ed|ing)|gripp(?:s|ed|ing)|wrench(?:es|ed|ing)|reach(?:es|ed|ing)|clap(?:s|ped|ping)|pat(?:s|ted|ting)|tilt(?:s|ed|ing)|smooth(?:s|ed|ing)|kneel(?:s|ed|ing)|trembl(?:es|ed|ing)|turn(?:s|ed|ing)|nod(?:s|ded|ding)|hurr(?:y|ies|ied|ying)|wrap(?:s|ped|ping)|wipe(?:s|d|ing)|pivot(?:s|ed|ing)|shout(?:s|ed|ing)|chant(?:s|ed|ing)|rais(?:es|ed|ing)|lift(?:s|ed|ing)|walk(?:s|ed|ing)|run(?:s|ran|ning)|step(?:s|ped|ping)|march(?:es|ed|ing)|stare(?:s|d|ing)|look(?:s|ed|ing)|watch(?:es|ed|ing)|gaze(?:s|d|ing)|blink(?:s|ed|ing)|laugh(?:s|ed|ing)|smil(?:es|ed|ing)|speak(?:s|spoke|ing)|call(?:s|ed|ing)|whisper(?:s|ed|ing)|bow(?:s|ed|ing)|clutch(?:es|ed|ing)|count(?:s|ed|ing)|lean(?:s|ed|ing)|enter(?:s|ed|ing)|exit(?:s|ed|ing)|approach(?:es|ed|ing)|freeze(?:s|d|ing)|howl(?:s|ed|ing)|throw(?:s|threw|ing))\b/i;
 const FRAME_GAZE_RE = /\b(?:look(?:s|ed|ing)?|watch(?:es|ed|ing)?|stare(?:s|d|ing)?|gaze(?:s|d|ing)?|eyes?\s+(?:fixed|locked|dragging|sliding|slide|turn(?:ed|ing)?|going|drawn))\b/i;
+// The lens, or someone outside the frame (optionally on a named side).
+const beyondFrame = (target) => target === 'camera' || /^offscreen(?:[_-](?:left|right|up|down|above|below|front|behind))?$/.test(target);
 const NOOP_ACTIONS = new Set(['idle']);
 // A missing change reason is ledger bookkeeping the video model never reads: report it, don't block.
 const MISSING_REASON = /缺 (?:establishing 或 )?\w+Reason$/;
@@ -1223,10 +1217,10 @@ export function continuityReport(board) {
           && !String(ledger.eyelineUnknownReason ?? '').trim()) {
           issues.push(`${cid} 的 frame 描述了明确视线，但 eyelineTarget 为空；需指向人物/道具/camera/offscreen 或说明待确认`);
         }
-        if (ledger.eyelineTarget && ledger.eyelineTarget !== 'camera' && ledger.eyelineTarget !== 'offscreen') {
+        if (ledger.eyelineTarget && !beyondFrame(ledger.eyelineTarget)) {
           const visibleSubjects = new Set([...characters, ...props]);
           if (!visibleSubjects.has(ledger.eyelineTarget)) {
-            issues.push(`${cid} 的 eyelineTarget「${ledger.eyelineTarget}」不在本镜人物/道具中`);
+            issues.push(`${cid} 的 eyelineTarget「${ledger.eyelineTarget}」不在本镜人物/道具中；可填本镜人物/道具 id、camera、offscreen 或 offscreen_left/offscreen_right`);
           }
         }
         if (!previous) {
@@ -1237,8 +1231,7 @@ export function continuityReport(board) {
           const currentSubjects = new Set([...characters, ...props]);
           const previousTarget = previous.ledger.eyelineTarget;
           if (previousTarget
-            && previousTarget !== 'camera'
-            && previousTarget !== 'offscreen'
+            && !beyondFrame(previousTarget)
             && !currentSubjects.has(previousTarget)
             && !String(ledger.eyelineBreakReason ?? '').trim()) {
             issues.push(`${cid} 未兑现前镜视线目标「${previousTarget}」，缺 eyelineBreakReason`);

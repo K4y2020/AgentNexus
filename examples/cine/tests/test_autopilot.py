@@ -61,7 +61,7 @@ def test_a_failing_stage_gets_a_bounded_edit_budget(monkeypatch, directory):
 
     steps = []
     for n in range(autopilot.MAX_EDITS + 1):
-        steps.append(autopilot.next_step(directory, jev=False))
+        steps.append(autopilot.next_step(directory))
         edit(directory, "script", n)
 
     assert [s["action"] for s in steps[:-1]] == ["edit"] * autopilot.MAX_EDITS
@@ -74,7 +74,7 @@ def test_a_failing_stage_gets_a_bounded_edit_budget(monkeypatch, directory):
 def test_an_unedited_file_stops_after_repeated_calls(monkeypatch, directory):
     checks = Checks(monkeypatch)
     checks.results["cast"] = {"status": "failed"}
-    steps = [autopilot.next_step(directory, jev=False) for _ in range(autopilot.MAX_UNCHANGED + 1)]
+    steps = [autopilot.next_step(directory) for _ in range(autopilot.MAX_UNCHANGED + 1)]
     assert steps[-1]["reason"] == "not_progressing"
 
 
@@ -82,23 +82,23 @@ def test_a_person_editing_the_file_reopens_an_escalated_stage(monkeypatch, direc
     checks = Checks(monkeypatch)
     checks.results["cast"] = {"status": "failed"}
     for n in range(autopilot.MAX_EDITS + 1):
-        result = autopilot.next_step(directory, jev=False)
+        result = autopilot.next_step(directory)
         edit(directory, "cast", n)
     # The last edit above happened after escalation, i.e. by a person.
     assert result["action"] == "escalate"
     checks.results.pop("cast")
-    assert autopilot.next_step(directory, jev=False)["action"] == "import_canvas"
+    assert autopilot.next_step(directory)["action"] == "import_canvas"
     assert queue(directory) == []
 
 
 def test_passed_stages_are_not_rechecked_until_an_input_changes(monkeypatch, directory):
     checks = Checks(monkeypatch)
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     assert checks.calls == list(STAGES)
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     assert checks.calls == list(STAGES)
     edit(directory, "art", 1)
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     assert checks.calls[len(STAGES) :] == ["art"]
 
 
@@ -111,7 +111,7 @@ def test_missing_sheets_are_repaired_in_cast(monkeypatch, directory):
             "problems": ["Character C01 (A) has no image.sheet in cast.json."],
         },
     }
-    step = autopilot.next_step(directory, jev=False)
+    step = autopilot.next_step(directory)
     assert (step["stage"], step["target_stage"], step["skill"]) == (
         "storyboard",
         "cast",
@@ -126,18 +126,17 @@ def test_technical_failures_retry_once_then_wait_for_an_explicit_retry(monkeypat
         "status": "attribution_error",
         "stderr": "TYPESAFE_API_KEY missing",
     }
-    step = autopilot.next_step(directory, jev=False)
+    step = autopilot.next_step(directory)
     assert step["reason"] == "technical_attribution_error"
     assert checks.calls.count("script") == 2
-    assert autopilot.next_step(directory, jev=False)["action"] == "escalate"
+    assert autopilot.next_step(directory)["action"] == "escalate"
     checks.results.pop("script")
-    assert autopilot.next_step(directory, jev=False, retry=True)["action"] == "import_canvas"
+    assert autopilot.next_step(directory, retry=True)["action"] == "import_canvas"
 
 
-def test_advisory_findings_are_queued_without_blocking(monkeypatch, directory):
+def test_unsettled_speakers_are_queued_without_blocking(monkeypatch, directory):
     checks = Checks(monkeypatch)
     checks.results["script"] = {
-        "jev": {"status": "baseline_unusable", "failures": ["x"]},
         # The script was compared with the attributed transcript.
         "command": ["node", "cine-script.mjs", "validate", "--source", "attributed.json"],
     }
@@ -148,18 +147,18 @@ def test_advisory_findings_are_queued_without_blocking(monkeypatch, directory):
     step = autopilot.next_step(directory)
     assert step["action"] == "import_canvas"
     reasons = {(i["reason"], i["severity"]) for i in queue(directory)}
-    assert reasons == {("jev_baseline_unusable", "review"), ("speaker_unsettled", "review")}
+    assert reasons == {("speaker_unsettled", "review")}
 
 
 def test_canvas_sync_is_recorded_per_storyboard_version(monkeypatch, directory, tmp_path):
     Checks(monkeypatch)
-    step = autopilot.next_step(directory, jev=False)
+    step = autopilot.next_step(directory)
     assert step["arguments"]["action"] == "import_storyboard"
     receipt = tmp_path / "receipt.json"
     receipt.write_text(json.dumps({"status": "imported"}), encoding="utf-8")
     assert autopilot.record_canvas_sync(directory, receipt)["action"] == "done"
     edit(directory, "storyboard", 1)
-    assert autopilot.next_step(directory, jev=False)["action"] == "import_canvas"
+    assert autopilot.next_step(directory)["action"] == "import_canvas"
 
 
 def test_canvas_delivery_returns_existing_files_and_receipts_after_restart(
@@ -167,7 +166,7 @@ def test_canvas_delivery_returns_existing_files_and_receipts_after_restart(
 ):
     checks = Checks(monkeypatch)
     checks.results["storyboard"] = {"stdout": "✓ 分镜全部通过校验\n"}
-    assert autopilot.next_step(directory, jev=False)["action"] == "import_canvas"
+    assert autopilot.next_step(directory)["action"] == "import_canvas"
     canvas_receipt = {"status": "imported", "generation_submitted": False}
     receipt = tmp_path / "receipt.json"
     receipt.write_text(json.dumps(canvas_receipt), encoding="utf-8")
@@ -179,7 +178,98 @@ def test_canvas_delivery_returns_existing_files_and_receipts_after_restart(
     assert not (directory / "production.json").exists()
     assert done["receipts"]["storyboard"] == "✓ 分镜全部通过校验"
     assert done["canvas_receipt"] == canvas_receipt
-    assert autopilot.next_step(directory, jev=False) == done
+    assert autopilot.next_step(directory) == done
+
+
+def test_done_carries_each_review_item_as_queued(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    review = {"reason": "dialogue_location_unknown", "message": "台词地点无法判断"}
+    checks.results["script"] = {"locations": {"status": "passed", "review": [review]}}
+
+    done = autopilot.next_step(directory, text_only=True)
+
+    assert done["action"] == "done"
+    assert done["review"] == queue(directory)
+    assert done["review"][0]["detail"]["message"] == "台词地点无法判断"
+
+
+def test_cached_runs_retire_old_stage_reviews_but_preserve_other_findings(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    autopilot.next_step(directory, text_only=True)
+    retired = {"stage": "script", "source": "jev", "severity": "review", "reason": "jev_failed"}
+    active = {
+        "stage": "storyboard",
+        "source": "pov",
+        "severity": "review",
+        "reason": "pov_unchecked",
+        "detail": {"error": "service unavailable"},
+    }
+    (directory / autopilot.QUEUE).write_text(
+        json.dumps({"items": [retired, active]}), encoding="utf-8"
+    )
+
+    done = autopilot.next_step(directory)
+
+    assert checks.calls == list(STAGES)
+    assert done["review"] == [active]
+    saved = json.loads((directory / autopilot.QUEUE).read_text(encoding="utf-8"))
+    assert saved["items"] == [active]
+    assert saved["retired_items"] == [retired]
+    assert autopilot.next_step(directory) == done
+    assert json.loads((directory / autopilot.QUEUE).read_text())["retired_items"] == [retired]
+
+
+def test_unchecked_source_comparison_is_reported_and_cleared_after_recheck(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    comparison = {
+        "status": "unchecked",
+        "reason": "plain_text_requires_attributed_transcript",
+        "scope": "source_dialogue",
+        "message": "原稿对账未检查，不能声称台词忠实。",
+    }
+    checks.results["script"] = {"source_comparison": comparison}
+
+    done = autopilot.next_step(directory, text_only=True)
+
+    assert done["review"] == [
+        {
+            "stage": "script",
+            "source": "source_comparison",
+            "severity": "review",
+            "reason": "source_comparison_unchecked",
+            "detail": comparison,
+        }
+    ]
+    checks.results["script"] = {"source_comparison": {"status": "checked"}}
+    edit(directory, "script", 1)
+    assert autopilot.next_step(directory)["review"] == []
+
+
+def test_selecting_or_removing_source_text_reopens_cached_checks(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    autopilot.next_step(directory)
+    first = directory / "first.txt"
+    second = directory / "second.txt"
+    first.write_text("原稿", encoding="utf-8")
+    second.write_text("原稿", encoding="utf-8")
+
+    for selected in (first, second, None):
+        before = len(checks.calls)
+        autopilot.next_step(directory, source_text=selected)
+        assert checks.calls[before:] == ["cast", "script"]
+
+
+def test_changed_validator_wrapper_reopens_cached_stages(monkeypatch, directory, tmp_path):
+    wrapper = tmp_path / "production.py"
+    wrapper.write_text("old check implementation", encoding="utf-8")
+    monkeypatch.setattr(production, "__file__", str(wrapper))
+    checks = Checks(monkeypatch)
+    autopilot.next_step(directory)
+    wrapper.write_text("new check implementation", encoding="utf-8")
+
+    autopilot.next_step(directory)
+
+    assert checks.calls == list(STAGES) * 2
 
 
 def test_source_location_reviews_are_queued_and_cleared_on_recheck(monkeypatch, directory):
@@ -206,30 +296,30 @@ def test_source_location_reviews_are_queued_and_cleared_on_recheck(monkeypatch, 
             ],
         }
     }
-    assert autopilot.next_step(directory, jev=False)["review_items"] == 2
+    assert autopilot.next_step(directory)["review_items"] == 2
     assert {item["source"] for item in queue(directory)} == {"locations"}
     checks.results.clear()
     edit(directory, "outline", 1)
     edit(directory, "script", 1)
-    assert autopilot.next_step(directory, jev=False)["review_items"] == 0
+    assert autopilot.next_step(directory)["review_items"] == 0
 
 
 def test_new_source_locations_reopen_passed_outline_and_script(monkeypatch, directory):
     checks = Checks(monkeypatch)
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     (directory / "source-material.json").write_text('{"source_locations": {}}', encoding="utf-8")
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     assert checks.calls[len(STAGES) :] == ["outline", "script"]
 
 
 def test_legacy_cached_stage_without_location_inputs_is_rechecked(monkeypatch, directory):
     checks = Checks(monkeypatch)
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     path = directory / autopilot.STATE
     state = json.loads(path.read_text(encoding="utf-8"))
     state["stages"]["outline"]["passed_inputs"].pop(str(directory / "source-material.json"))
     path.write_text(json.dumps(state), encoding="utf-8")
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     assert checks.calls[len(STAGES) :] == ["outline"]
 
 
@@ -242,7 +332,7 @@ def test_cards_whose_prompt_ignores_their_references_block_generation(
     scene; generating it as it is would spend credits on the wrong picture.
     """
     Checks(monkeypatch)
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     receipt = tmp_path / "receipt.json"
     review = [{"segmentId": "E01-01", "issues": ["The prompt defines no <Subject N>"]}]
     receipt.write_text(
@@ -280,7 +370,7 @@ def test_seed_creates_a_missing_stage_before_checking(monkeypatch, directory):
 
     monkeypatch.setattr(production, "seed", seed)
     checks.results["art"] = {"status": "failed"}
-    step = autopilot.next_step(directory, jev=False)
+    step = autopilot.next_step(directory)
     assert seeded == ["art"]
     assert (step["action"], step["mode"], step["stage"]) == ("edit", "write", "art")
 
@@ -288,12 +378,12 @@ def test_seed_creates_a_missing_stage_before_checking(monkeypatch, directory):
 def test_edit_history_survives_the_stage_passing(monkeypatch, directory):
     checks = Checks(monkeypatch)
     checks.results["cast"] = {"status": "failed"}
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     edit(directory, "cast", 1)
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     edit(directory, "cast", 2)
     checks.results.pop("cast")
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     state = json.loads((directory / autopilot.STATE).read_text(encoding="utf-8"))
     history = state["stages"]["cast"]["history"]
     assert [h["status"] for h in history] == ["failed", "failed", "passed"]
@@ -307,7 +397,7 @@ def test_a_free_adaptation_raises_no_speaker_items(monkeypatch, directory):
     (directory / "source-transcript-attributed.json").write_text(
         json.dumps({"attributions": [{"text": "x", "needs_review": True}]}), encoding="utf-8"
     )
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     assert queue(directory) == []
 
 
@@ -375,17 +465,15 @@ def test_used_unsettled_speaker_stops_faithful_completion(monkeypatch, directory
         run = autopilot._Run(directory)
         run.state["canvas_synced"] = {"sha": production.digest(directory / "storyboard.json")}
         run.save()
-    result = autopilot.next_step(directory, jev=False)
+    result = autopilot.next_step(directory)
     assert result["action"] == "human_review_speakers"
     assert result["lines"][0]["evidence"] == source["attributions"][0]["evidence"]
-    assert autopilot.next_step(directory, jev=False)["action"] == "human_review_speakers"
+    assert autopilot.next_step(directory)["action"] == "human_review_speakers"
     source["attributions"][0].update(speaker="C01", speaker_needs_review=False)
     (directory / "source-transcript-attributed.json").write_text(
         json.dumps(source), encoding="utf-8"
     )
-    assert autopilot.next_step(directory, jev=False)["action"] == (
-        "done" if synced else "import_canvas"
-    )
+    assert autopilot.next_step(directory)["action"] == ("done" if synced else "import_canvas")
     assert not [i for i in queue(directory) if i["source"] == "speakers"]
 
 
@@ -404,7 +492,7 @@ def test_unused_unsettled_speaker_does_not_stop_completion(monkeypatch, director
         ),
         encoding="utf-8",
     )
-    assert autopilot.next_step(directory, jev=False)["action"] == "import_canvas"
+    assert autopilot.next_step(directory)["action"] == "import_canvas"
 
 
 @pytest.mark.parametrize("synced", [False, True])
@@ -461,9 +549,7 @@ def test_used_confirmed_extra_does_not_stop_faithful_completion(monkeypatch, dir
         run = autopilot._Run(directory)
         run.state["canvas_synced"] = {"sha": production.digest(directory / "storyboard.json")}
         run.save()
-    assert autopilot.next_step(directory, jev=False)["action"] == (
-        "done" if synced else "import_canvas"
-    )
+    assert autopilot.next_step(directory)["action"] == ("done" if synced else "import_canvas")
     assert not [i for i in queue(directory) if i["source"] == "speakers"]
 
 
@@ -515,21 +601,21 @@ def test_confirmed_extra_cannot_hide_an_unsettled_response_in_a_merged_beat(
     run = autopilot._Run(directory)
     run.state["canvas_synced"] = {"sha": production.digest(directory / "storyboard.json")}
     run.save()
-    result = autopilot.next_step(directory, jev=False)
+    result = autopilot.next_step(directory)
     assert result["action"] == "human_review_speakers"
     assert [r["source_id"] for r in result["lines"]] == ["b"]
 
 
 def test_legacy_passed_script_receipt_reopens_for_people_evidence(monkeypatch, directory):
     checks = Checks(monkeypatch)
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     run = autopilot._Run(directory)
     run.stage("script")["passed_inputs"] = {
         str(directory / "script.json"): production.fingerprint(directory / "script.json")
     }
     run.save()
     checks.calls.clear()
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     assert checks.calls == ["script"]
 
 
@@ -538,7 +624,7 @@ def test_native_source_review_findings_reach_the_review_queue(monkeypatch, direc
     checks.results["script"] = {
         "source_review": {"bad": {"review": ["S01 说话人不符，原片 1.0–2.0s"]}}
     }
-    assert autopilot.next_step(directory, jev=False)["action"] == "import_canvas"
+    assert autopilot.next_step(directory)["action"] == "import_canvas"
     assert any(i["reason"] == "source_speaker_review" for i in queue(directory))
 
 
@@ -548,34 +634,34 @@ def test_changed_vision_model_reopens_script_without_rechecking_other_stages(
     current = ["vision-a"]
     monkeypatch.setattr(production, "vision_model", lambda: current[0])
     checks = Checks(monkeypatch)
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     checks.calls.clear()
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     assert checks.calls == []
     current[0] = "vision-b"
-    autopilot.next_step(directory, jev=False)
+    autopilot.next_step(directory)
     assert checks.calls == ["script"]
 
 
 def test_a_text_only_run_ends_with_the_files_and_validator_receipts(monkeypatch, directory):
     checks = Checks(monkeypatch)
     checks.results["storyboard"] = {"stdout": "warming up\n✓ 1 集 / 5 段全部通过校验\n"}
-    step = autopilot.next_step(directory, jev=False)
+    step = autopilot.next_step(directory)
     assert step["action"] == "import_canvas" and "--text-only" in step["text_only"]
 
-    step = autopilot.next_step(directory, jev=False, text_only=True)
+    step = autopilot.next_step(directory, text_only=True)
     assert (step["action"], step["delivery"]) == ("done", "text")
     assert step["receipts"]["storyboard"] == "✓ 1 集 / 5 段全部通过校验"
     assert step["files"]["script"].endswith("script.json")
     assert "finalize" in step["detail"]
     # The choice is remembered, so a later plain call still ends there.
-    assert autopilot.next_step(directory, jev=False)["delivery"] == "text"
+    assert autopilot.next_step(directory)["delivery"] == "text"
 
 
 def test_upstream_edits_during_a_storyboard_repair_are_undone(monkeypatch, directory):
     checks = Checks(monkeypatch)
     checks.results["storyboard"] = {"status": "failed", "stderr": "一个镜头两个人说话"}
-    step = autopilot.next_step(directory, jev=False)
+    step = autopilot.next_step(directory)
     assert step["action"] == "edit" and step["target_stage"] == "storyboard"
     assert {"outline.json", "cast.json", "art.json", "script.json"} <= set(step["frozen"])
     original = (directory / "script.json").read_bytes()
@@ -583,7 +669,7 @@ def test_upstream_edits_during_a_storyboard_repair_are_undone(monkeypatch, direc
     edit(directory, "script", 1)  # the repair rewrites dialogue upstream
     (directory / "person-map.json").write_text("{}", encoding="utf-8")
     edit(directory, "storyboard", 1)
-    step = autopilot.next_step(directory, jev=False)
+    step = autopilot.next_step(directory)
 
     assert (directory / "script.json").read_bytes() == original
     assert not (directory / "person-map.json").exists()
@@ -607,11 +693,11 @@ def test_a_repair_aimed_at_an_upstream_stage_may_change_it(monkeypatch, director
     # Later stages list the cast among their inputs; it stays editable all the same.
     inputs = {str(directory / f"{s}.json"): None for s in ("cast", "art")}
     checks.results["art"] = {"input_hashes": inputs}
-    step = autopilot.next_step(directory, jev=False)
+    step = autopilot.next_step(directory)
     assert step["target_stage"] == "cast" and "cast.json" not in step["frozen"]
     assert "art.json" in step["frozen"]
     edit(directory, "cast", 1)
-    step = autopilot.next_step(directory, jev=False)
+    step = autopilot.next_step(directory)
     assert "reverted_upstream" not in step
     assert json.loads((directory / "cast.json").read_text(encoding="utf-8"))["edit"] == 1
 
@@ -620,11 +706,11 @@ def test_a_person_may_change_upstream_stages_after_an_escalation(monkeypatch, di
     checks = Checks(monkeypatch)
     checks.results["storyboard"] = {"status": "failed"}
     for n in range(autopilot.MAX_EDITS + 1):
-        result = autopilot.next_step(directory, jev=False)
+        result = autopilot.next_step(directory)
         edit(directory, "storyboard", n)
     assert result["action"] == "escalate"
     edit(directory, "script", 9)
-    step = autopilot.next_step(directory, jev=False)
+    step = autopilot.next_step(directory)
     assert "reverted_upstream" not in step
     assert json.loads((directory / "script.json").read_text(encoding="utf-8"))["edit"] == 9
 
@@ -648,16 +734,17 @@ def test_an_unfinished_film_analysis_sends_the_run_back_to_intake(monkeypatch, d
     }
     path = directory / "source-material.json"
     path.write_text(json.dumps(material), encoding="utf-8")
-    step = autopilot.next_step(directory, jev=False)
+    step = autopilot.next_step(directory)
     assert step["action"] == "intake"
     assert "shots_unread:2" in step["gaps"] and "summary_premise_missing" in step["gaps"]
     assert "story draft" in step["detail"]
 
     story.update(
+        forms=[],
         characters=["船夫"],
         summary={"premise": "渡口", "conflict": "皮箱", "turning_points": [], "ending": "开船"},
         sections=[{"batch_id": "B001", "events": ["开船"], "connection": "完"}],
     )
     material["source_locations"] = {"status": "read", "unread_shots": []}
     path.write_text(json.dumps(material), encoding="utf-8")
-    assert autopilot.next_step(directory, jev=False)["action"] == "import_canvas"
+    assert autopilot.next_step(directory)["action"] == "import_canvas"

@@ -296,20 +296,8 @@ def test_manual_check_then_next_reuses_the_same_performance(monkeypatch, tmp_pat
         return row
 
     monkeypatch.setattr(production, "check_stage", check_stage)
-    assert autopilot.next_step(tmp_path, jev=False)["action"] == "human_review_speakers"
+    assert autopilot.next_step(tmp_path)["action"] == "human_review_speakers"
     assert seen == [1] and len(jev.states) == 1
-
-
-def test_the_jev_baseline_shows_what_the_frames_show(tmp_path):
-    attributed = tmp_path / "source-transcript-attributed.json"
-    row = {"speaker_name": "秀娥", "text": "雾天别下水！", "performance": CRYING}
-    attributed.write_text(
-        json.dumps({"attributions": [row]}, ensure_ascii=False), encoding="utf-8"
-    )
-
-    text = production.render_attributed_source(tmp_path, attributed).read_text(encoding="utf-8")
-
-    assert "[秀娥] 雾天别下水！  〔画面：包蓝头巾的妇人，委屈痛哭：满脸泪水〕" in text
 
 
 @pytest.mark.parametrize("carried", [True, False])

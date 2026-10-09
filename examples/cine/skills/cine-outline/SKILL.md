@@ -77,6 +77,7 @@ metadata:
 忠实模式每个场景必填 `from: ["Lx"]`；有台词或累计不少于 3 秒的原片地点必须覆盖。
 合并多个地点时，场景 `from` 列全地点，并在 `adaptation.merge[].locations` 写相同的集合。
 抽核模式删掉这些地点必须在 `adaptation.cut[].locations` 点名；原创场景注明来源为空并进 review。
+原片的拍摄形式（主视角、对镜头说话等）`init` 已预填在 `adaptation.forms`，逐条写 `keep` 或 `drop` 和理由，规则见 `references/schema.md`。
 借壳跳过地点检查。场景表缺失、部分失败或地点未知进 review，不能宣称原片地点已核对。
 小说、原创和独立文本工作流不要求原片地点 id。地点规则由 `production.py check` 在原生校验后执行。
 

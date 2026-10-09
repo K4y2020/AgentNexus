@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "skills/film-analysis"))
-from pipeline import jev_client, jev_gates, jev_review, jev_transport
+from pipeline import jev_client, jev_review, jev_transport
 
 
 @pytest.fixture
@@ -40,6 +40,5 @@ def test_agentnexus_env_file_supplies_the_key(home):
 
 def test_every_pipeline_caller_shares_one_lookup():
     assert jev_review._find_api_key is jev_transport.find_api_key
-    assert jev_gates._find_api_key is jev_transport.find_api_key
     assert jev_client._find_api_key is jev_transport.find_api_key
     assert jev_review.open_client is jev_transport.open_client
