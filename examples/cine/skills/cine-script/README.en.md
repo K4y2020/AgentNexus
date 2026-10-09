@@ -2,6 +2,8 @@
 
 # cine-script
 
+Check actions the approved outline or user requires in full against every scene's `flow`: initiation, response, interaction and ending state. Repeated scenes each need this review. Complete dialogue and passing structure checks cannot prove action completeness. Repair missing actions in the script, then update its budget and handoff; permitted ellipsis follows the approved creative intent.
+
 Screenwriting for AI short drama: turns cine-outline's per-episode synopses into scenes and dialogue. The premise is baked in: **the script owns the drama, the storyboard owns the filming.** "Is it gripping" and "how to shoot it" iterate at completely different speeds — dialogue gets rewritten constantly, and binding it to shot breakdowns means re-cutting shots on every line change. So this layer has no shot numbers and no frame prompts; those belong to the storyboard skill one layer down.
 
 One line is held firmly though: **dialogue is structured data, not prose.**

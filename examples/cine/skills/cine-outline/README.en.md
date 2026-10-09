@@ -2,6 +2,8 @@
 
 # cine-outline
 
+Trace duration and adaptation scope to the current human request. Example or test-dispatch parameters are not creative approval. When revising an inherited draft, compare its target with the source duration and current request; revisit scenes removed only to meet an obsolete budget.
+
 Feed it a novel plus target parameters, and get a five-piece short-drama adaptation outline:
 
 - **Adaptation notes** — one-line core, keep/cut/merge tables, risk plans, and decision conclusions (`cutNote` "this means…" / `mergeNote` lead-roster rationale), with key decisions backed by **verbatim quotes from the source**

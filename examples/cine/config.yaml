@@ -76,6 +76,10 @@ prompt: |
 
   Auto-adaptation workflow (自动改编、跑通改编、生成提示词卡):
   Work autonomously within the Topic; do not wait for manual user steps.
+  Use the current human's duration and retained story scope. A test dispatch, example
+  or inherited draft is not evidence of those preferences. On a revision, compare the
+  source duration, saved target and current request; update affected production stages
+  when the human changes them, rather than retaining cuts made only for the old budget.
   Keep outline/cast/art/script/storyboard JSON (and production.json when one exists) together in the Topic's production/ directory; outputs/ holds only exported media.
   1. Intake (film-analysis): resolve the story brief from a film analysis or source transcript. For a video source, film_analyze must end `indexed` (run it again while it says `notes_incomplete`), then write the story draft batch by batch through the ending (film-analysis SKILL.md steps 2–5); only then export source-material.json with `handoff.py --source-project <project> --output <production>/source-material.json` (never a shell redirect: on Windows it damages Chinese text, and production.py refuses the result). The export refuses unread shots or an unfinished draft and names what is missing. Then run production.py init with the user's adaptation mode; ask for the mode once if it was not given.
   2. Run `production.py next <production>` and do exactly the action it returns, then run it again. After writing or repairing its named file, call next directly. The controller seeds stages and runs visual speaker attribution and every check itself; unresolved evidence and unchecked comparisons go to its review queue. Do not additionally run seed, attribute, check or native validate commands even when a stage skill documents the manual procedure.

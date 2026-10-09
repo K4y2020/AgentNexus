@@ -4,6 +4,8 @@
 
 In Cine's multi-skill pipeline the [production handoff](../film-analysis/references/production-handoff.md) governs the handoff contract and the Cine prompt's Tool boundaries govern canvas edits and generation; the skill also works standalone.
 
+Beat coverage does not prove that the video prompt includes the claimed actions. Check each scene's required initiation, response, interaction and ending against the actual `[Shot k]` text. If the script already omits them, repair it first, then update beat ranges, opening frames, continuity states, prop ownership and duration. Preserve approved ellipsis and shooting forms; report text checks separately from generated-video review.
+
 Storyboarding for AI short drama: turns cine-script's beat flow into a video generation worklist. Shot duration and edits follow content and approved shooting forms. The default shot cap follows the provider's generation duration. Hence a three-level structure:
 
 ```
