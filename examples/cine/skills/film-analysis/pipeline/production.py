@@ -1345,6 +1345,21 @@ def main(argv=None):
         action="store_true",
         help="The user wants the text files only: finish with done instead of a canvas import.",
     )
+    step.add_argument(
+        "--generation-plan",
+        type=Path,
+        help="Continue into media generation using an explicitly authorized bounded plan.",
+    )
+    step.add_argument(
+        "--generation-receipt",
+        type=Path,
+        help="Record {action_id, result} from the exact requested generation tool action.",
+    )
+    step.add_argument(
+        "--assemble-media",
+        action="store_true",
+        help="Assemble the exported video items requested by the current generation plan.",
+    )
     final = sub.add_parser("finalize")
     final.add_argument("directory", type=Path)
     final.add_argument("--source-text", type=Path)
@@ -1367,15 +1382,24 @@ def main(argv=None):
                 from . import autopilot
             except ImportError:  # Direct CLI execution from the pipeline directory.
                 import autopilot
+            next_arguments = {
+                "source_text": args.source_text.resolve() if args.source_text else None,
+                "retry": args.retry,
+                "text_only": args.text_only,
+                "generation_plan": args.generation_plan.resolve()
+                if args.generation_plan
+                else None,
+                "generation_receipt": args.generation_receipt.resolve()
+                if args.generation_receipt
+                else None,
+                "assemble_media": args.assemble_media,
+            }
             if args.canvas_synced:
-                result = autopilot.record_canvas_sync(directory, args.canvas_synced.resolve())
-            else:
-                result = autopilot.next_step(
-                    directory,
-                    source_text=args.source_text.resolve() if args.source_text else None,
-                    retry=args.retry,
-                    text_only=args.text_only,
+                result = autopilot.record_canvas_sync(
+                    directory, args.canvas_synced.resolve(), **next_arguments
                 )
+            else:
+                result = autopilot.next_step(directory, **next_arguments)
         elif args.action == "check":
             result = check(
                 directory,

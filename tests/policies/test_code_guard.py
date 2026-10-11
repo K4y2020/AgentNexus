@@ -82,3 +82,96 @@ def test_denial_explains_what_to_do_instead() -> None:
 def test_other_events_and_tools_pass() -> None:
     assert policy({"type": "request", "data": {}})["result"] == "ALLOW"
     assert verdict("seedance_read_canvas", action="models") == "ALLOW"
+
+
+@pytest.mark.parametrize(
+    "tool,path",
+    [
+        ("sys_os_read", r"C:\Users\Kay\.agentnexus\cine-quality-trust\private\signing-key.bin"),
+        ("sys_os_write", "/runtime/cine-quality-trust/public/verification-key.bin"),
+        ("sys_os_edit", "/runtime/cine-quality-trust/private/signing-key.bin"),
+        ("Read", "/runtime/.cine-quality-trust-staging/private/signing-key.bin"),
+        ("write_file", "/runtime/cine-quality-trust"),
+    ],
+)
+def test_media_quality_trust_files_are_reserved_for_the_runner(tool, path):
+    assert verdict(tool, path=path) == "DENY"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        r"Get-Content C:\Users\Kay\.agentnexus\cine-quality-trust\private\signing-key.bin",
+        "cat ~/.agentnexus/cine-quality-trust/private/signing-key.bin",
+        "cp fake-key ~/.agentnexus/cine-quality-trust/public/verification-key.bin",
+        "Remove-Item -Recurse ~/.agentnexus/cine-quality-trust",
+        "$p = '~/.agentnexus/cine-quality-trust/private/signing-key.bin'; Get-Content $p",
+        "AGENTNEXUS_DATA_DIR=/tmp/fake python /skills/film-analysis/pipeline/production.py next p",
+        "export HOME=/tmp/fake",
+        "env USERPROFILE=/tmp/fake python /skills/film-analysis/pipeline/production.py next p",
+        "$env:AGENTNEXUS_DATA_DIR = 'C:/fake'",
+        "Set-Item -Path Env:HOME -Value C:/fake",
+        "Set-Item -Value C:/fake -Path Env:HOME",
+        "Clear-Item -LiteralPath Env:AGENTNEXUS_DATA_DIR",
+        "Remove-Item Env:USERPROFILE",
+        "[Environment]::SetEnvironmentVariable('AGENTNEXUS_DATA_DIR', 'C:/fake')",
+        "cmd /c 'set USERPROFILE=C:/fake'",
+        "setx AGENTNEXUS_DATA_DIR C:/fake",
+        "unset HOME",
+        "env --unset=HOME python /skills/film-analysis/pipeline/production.py next p",
+    ],
+)
+def test_shell_cannot_modify_review_trust_or_redirect_its_root(command):
+    assert verdict("sys_os_shell", command=command) == "DENY"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "Get-Content production/review.json",
+        "Get-ChildItem outputs; ffprobe -v error outputs/clip.mp4",
+        "$env:PYTHONUTF8 = '1'",
+        "Get-ChildItem Env:HOME",
+        "Write-Output $env:AGENTNEXUS_DATA_DIR",
+    ],
+)
+def test_regular_creative_work_still_passes(command):
+    assert verdict("sys_os_shell", command=command) == "ALLOW"
+
+
+def test_shell_environment_argument_cannot_redirect_trust():
+    event = {
+        "type": "tool_call",
+        "data": {
+            "name": "sys_os_shell",
+            "arguments": {
+                "command": f'python "{SKILL}/pipeline/production.py" next production',
+                "env": {"AGENTNEXUS_DATA_DIR": "/fake"},
+            },
+        },
+    }
+    assert policy(event)["result"] == "DENY"
+
+
+def test_resolved_alias_of_trust_directory_is_protected(tmp_path, monkeypatch):
+    target = tmp_path / "runtime" / "cine-quality-trust"
+    target.mkdir(parents=True)
+    alias = tmp_path / "ordinary-looking-folder"
+    try:
+        alias.symlink_to(target, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks unavailable on this host")
+    monkeypatch.setenv("AGENTNEXUS_DATA_DIR", str(target.parent))
+    guarded = packaged_code_only()
+    result = guarded(
+        {
+            "type": "tool_call",
+            "data": {
+                "name": "sys_os_read",
+                "arguments": {
+                    "path": str(alias / "private/signing-key.bin"),
+                },
+            },
+        }
+    )
+    assert result["result"] == "DENY"

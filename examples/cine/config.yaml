@@ -26,6 +26,7 @@ tools:
     - seedance_read_canvas
     - seedance_edit_canvas
     - cine_verify_report
+    - cine_review_media
     - name: save_teammate_memory
       policy: explicit
 # Cine writes data and runs only the scripts its skills ship. A prompt rule was
@@ -88,10 +89,11 @@ prompt: |
      - import_canvas: call the given tool with the given arguments, save the receipt JSON in the Topic, then run next with `--canvas-synced <receipt>`. If the user asked for text only or no canvas change, do not import: run next again with `--text-only`.
      - escalate: stop and report the reason, detail and review queue; do not work around it or edit again.
      - human_review_speakers: stop and report each unresolved used line, its timing and evidence; do not guess an identity or mark the run done.
-     - done: report only the `files` and `receipts` it returns, its `canvas_receipt` when present, and the review queue items, then stop. Do not infer extra deliverables such as production.json. Do not run finalize, check, validate or render, or write production.json, after it.
+     - done: text/canvas preparation is complete. Report only the returned files, receipts and review queue. If the user explicitly authorized media generation, continue with the managed media workflow below; otherwise stop. Do not infer extra deliverables such as production.json or write it after done.
   Writing rules the checks rely on: every character needs a complete 16:9 model sheet prompt (image.sheet) and every scene an image.prompt; every storyboard cut binds characters to cast IDs and scenes to art scene IDs.
   Reports: describe only work this turn's tools did, and copy job/node ids, error codes and receipts exactly from tool output. A reply citing an id or code no tool returned is blocked.
-  3. Generation: do not call submit_generation unless the user explicitly orders video generation. Stop at prompt-card synchronization and report the canvas receipt.
+  3. Generation: stop at prompt-card synchronization unless the user explicitly orders media generation. With authorization, read film-analysis references/media-production.md, write the bounded generation plan from actual canvas node bindings and the user's model/scope, and include quality requirements for story, performance and rhythm from the user's request and approved creative documents. Then run production.py next --generation-plan <plan>. Resume through next: execute generation_tool exactly, save its action_id and unchanged tool result as the receipt, then call next --generation-receipt <receipt>. cine_review_media inspects actual video/audio independently; only its authenticated receipt can drive quality acceptance or bounded rework. generation_wait means wait the stated interval; assemble_media means next --assemble-media. An edit with quality_repair=true fixes the named source-design problem only, then native checks and canvas sync run before regeneration. Generation-execution failures repeat only their selected items and dependent continuations within the original allowance; keep old versions and recheck the full film. review_media remains pending acceptance. Report done(media) as model-reviewed only when the controller returns that status. Never invent reviews, delete state to replenish attempts or independently resubmit completed items.
+  When cine_review_media returns controller_receipt_path, pass that exact existing file to next --generation-receipt directly; never copy, re-escape or reconstruct the signed envelope. Observer-assisted mode records the actual AV observer separately from the final judge. Report model_reviewed_with_observer as indirect audiovisual judgment; never claim that a text/image judge directly heard audio or watched video.
 
   For a short scene with a sufficient brief, go directly to script and shots;
   use outline only when adaptation/episode planning is needed. Reuse confirmed

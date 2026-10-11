@@ -434,6 +434,12 @@ Runtime source-shot receipt checks still apply; this sidecar cannot bypass them.
 
 ## Managed generation
 
+For explicitly authorized media batches, read [media-production.md](media-production.md).
+It continues `production.py next` through durable submission, job polling, media export
+and optional assembly. With quality requirements, independent audiovisual review drives
+bounded local rework and reinspection. Only a current signed pass returns model-reviewed
+media delivery; otherwise acceptance stays pending. Default text/canvas delivery is unchanged.
+
 Submission requires the user's explicit authorization scope, retries included.
 Submit runs validation itself: a separate `validate_generation` is optional for a
 preflight/review request, not a loop.

@@ -30,6 +30,40 @@ def test_removed_agent_message_is_not_dispatched():
     assert should_dispatch_locally("seedance_agent_message") is False
 
 
+def test_quality_review_is_opt_in_and_has_no_model_supplied_verdict():
+    assert should_dispatch_locally("cine_review_media")
+    manager = ToolManager(
+        AgentSpec(
+            spec_version=1,
+            tools=ToolsConfig(builtins=[BuiltinToolConfig(name="cine_review_media")]),
+        )
+    )
+    schema = manager.get_tool("cine_review_media").get_schema()["function"]["parameters"]
+    assert set(schema["properties"]) == {"production_dir"}
+    assert schema["additionalProperties"] is False
+
+
+@pytest.mark.asyncio
+async def test_quality_review_dispatches_to_independent_runner():
+    with patch(
+        "agentnexus.seedance.media_quality.review_media",
+        new=AsyncMock(
+            return_value={"status": "reviewed", "envelope": {"signature": "runner-result"}}
+        ),
+    ) as review:
+        async with httpx.AsyncClient() as client:
+            result = json.loads(
+                await execute_tool(
+                    tool_name="cine_review_media",
+                    arguments=json.dumps({"production_dir": "production"}),
+                    conversation_id="topic",
+                    server_client=client,
+                )
+            )
+    assert result["status"] == "reviewed"
+    assert review.await_args.kwargs["production_dir"] == "production"
+
+
 @pytest.mark.asyncio
 async def test_removed_agent_message_does_not_reach_the_bridge():
     async with httpx.AsyncClient() as client:

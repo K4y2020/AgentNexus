@@ -1,4 +1,4 @@
-"""Deterministic controller for unattended Cine production, source to canvas prompt cards.
+"""Deterministic controller for Cine drafts and explicitly authorized media delivery.
 
 Cine writes the creative artifacts; this module decides what happens next:
 which stage to write or repair, which mechanical steps to run itself, and when
@@ -420,10 +420,34 @@ def next_step(
     source_text: Path | None = None,
     retry: bool = False,
     text_only: bool = False,
+    generation_plan: Path | None = None,
+    generation_receipt: Path | None = None,
+    assemble_media: bool = False,
 ) -> dict[str, Any]:
     """Return the one next action for an unattended production run."""
     directory = Path(directory).resolve()
     _refuse_damaged_inputs(directory)
+    try:
+        from . import generation
+    except ImportError:
+        import generation
+    if (directory / generation.STATE).exists():
+        if text_only:
+            raise ValueError(
+                "An active media run cannot become text-only; inspect its saved jobs."
+            )
+        return generation.next_step(
+            directory,
+            plan_path=generation_plan,
+            receipt_path=generation_receipt,
+            source_text=source_text,
+            retry=retry,
+            assemble=assemble_media,
+        )
+    if generation_receipt or assemble_media:
+        raise ValueError("Start an authorized media run with --generation-plan first")
+    if generation_plan and text_only:
+        raise ValueError("Choose either text-only delivery or an authorized generation plan")
     if not prod.stage_path(directory, "outline", must_exist=False).exists():
         return {
             "action": "intake",
@@ -444,10 +468,31 @@ def next_step(
             "gaps": gaps,
         }
     run = _Run(directory)
+    if generation_plan:
+        run.state["generation_plan"] = str(generation_plan.resolve(strict=True))
+        run.state.pop("delivery", None)
+        run.save()
     if text_only:
         run.state["delivery"] = "text"
+        run.state.pop("generation_plan", None)
     reverted = _restore_frozen(run)
     result = _decide(run, source_text or _default_source_text(directory), retry=retry)
+    if result.get("action") in {"done", "import_canvas"} and run.state.get("generation_plan"):
+        plan_path = Path(run.state["generation_plan"])
+        plan = prod.read(plan_path)
+        generation.validate_plan(directory, plan)
+        if result["action"] == "done" or plan.get("canvas_strategy") == "existing_nodes":
+            if result.get("blocking_items"):
+                return _escalate(
+                    run, "storyboard", "generation_blocked_by_review", run.queue["items"], None
+                )
+            # Native stages passed; the bridge will validate each selected existing node.
+            result = generation.next_step(
+                directory,
+                plan_path=plan_path,
+                source_text=source_text or _default_source_text(directory),
+                retry=retry,
+            )
     if reverted:
         notice = (
             "Undid changes to "
@@ -606,11 +651,16 @@ def _decide(run: _Run, source_text: Path | None, *, retry: bool) -> dict[str, An
     }
 
 
-def record_canvas_sync(directory: Path, receipt: Path) -> dict[str, Any]:
+def record_canvas_sync(directory: Path, receipt: Path, **next_arguments) -> dict[str, Any]:
     """Mark the current storyboard as imported, keyed by its hash."""
     directory = Path(directory).resolve()
     run = _Run(directory)
     recorded = _read_json(receipt, None)
+    try:
+        from .quality_loop import acknowledge_canvas
+    except ImportError:
+        from quality_loop import acknowledge_canvas
+    acknowledge_canvas(directory, recorded)
     run.state["canvas_synced"] = {
         "sha": prod.digest(prod.stage_path(directory, "storyboard")),
         "receipt": recorded,
@@ -631,4 +681,4 @@ def record_canvas_sync(directory: Path, receipt: Path) -> dict[str, Any]:
         ],
     )
     run.save()
-    return next_step(directory)
+    return next_step(directory, **next_arguments)

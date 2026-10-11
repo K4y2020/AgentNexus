@@ -364,6 +364,7 @@ _SEEDANCE_TOOLS = frozenset(
         "seedance_read_canvas",
         "seedance_edit_canvas",
         "cine_verify_report",
+        "cine_review_media",
     }
 )
 
@@ -6814,6 +6815,24 @@ async def _execute_seedance_tool(
             return json.dumps(result, ensure_ascii=False)
         except (OSError, ValueError, KeyError, TypeError, httpx.HTTPError) as exc:
             return json.dumps({"status": "rejected", "error": str(exc)}, ensure_ascii=False)
+
+    if tool_name == "cine_review_media":
+        from agentnexus.seedance.media_quality import review_media
+        from agentnexus.seedance.skill_modules import film_analysis_skills_dir
+
+        try:
+            result = await review_media(
+                server_client,
+                conversation_id,
+                production_dir=_optional_string(args.get("production_dir")) or "",
+                skills_dir=film_analysis_skills_dir(agent_spec),
+            )
+            return json.dumps(result, ensure_ascii=False)
+        except (OSError, ValueError, KeyError, TypeError, httpx.HTTPError) as exc:
+            return json.dumps(
+                {"status": "unavailable", "error": str(exc), "acceptance": "pending"},
+                ensure_ascii=False,
+            )
 
     if tool_name == "seedance_read_canvas":
         project_id = _optional_string(args.get("project_id"))

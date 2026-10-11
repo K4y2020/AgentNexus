@@ -67,6 +67,7 @@ def test_cine_bundle_opts_into_its_tools():
         "seedance_read_canvas",
         "seedance_edit_canvas",
         "cine_verify_report",
+        "cine_review_media",
         "save_teammate_memory",
     }
     memory = next(b for b in spec.tools.builtins if b.name == "save_teammate_memory")
@@ -252,3 +253,15 @@ def test_stage_skills_share_one_cross_skill_section():
         assert text.count(heading) == 1, name
         sections[name] = text.split(heading, 1)[1].split("\n\n\n", 1)[0]
     assert len(set(sections.values())) == 1, sections
+
+
+def test_media_review_routing_survives_host_to_runner_without_extra_passthrough():
+    routing = {
+        "AGENTNEXUS_MEDIA_REVIEW_MODEL": "gpt-6.1-sol",
+        "AGENTNEXUS_MEDIA_OBSERVER_MODEL": "gemini-3.8-flash-high",
+        "AGENTNEXUS_MEDIA_REVIEW_MODE": "observer_assisted",
+    }
+    runner = _runner_env({**routing, "UNRELATED_PRIVATE_KEY": "must-not-forward"})
+    assert {key: runner.get(key) for key in routing} == routing
+    assert "UNRELATED_PRIVATE_KEY" not in runner
+    assert "AGENTNEXUS_RUNNER_ENV_PASSTHROUGH" not in runner

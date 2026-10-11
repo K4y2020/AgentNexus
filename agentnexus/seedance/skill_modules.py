@@ -21,7 +21,9 @@ from typing import Any
 SKILL = "film-analysis"
 PIPELINE = Path(SKILL) / "pipeline"
 # Pipeline modules core may run; everything else stays in the Topic.
-CORE_MODULES = frozenset({"production", "source_identity", "draft_check"})
+CORE_MODULES = frozenset(
+    {"production", "source_identity", "draft_check", "generation", "transcribe", "media_assembly"}
+)
 
 _lock = threading.Lock()
 

@@ -28,9 +28,11 @@ from __future__ import annotations
 import re
 import shlex
 from collections.abc import Callable, Iterable
+from pathlib import Path
 
 from agentnexus.policies.builtins._shell import SHELL_TOOLS
 from agentnexus.policies.schema import PolicyEvent, PolicyResponse
+from agentnexus.process_logging import data_dir
 
 _ALLOW: PolicyResponse = {"result": "ALLOW"}
 
@@ -78,6 +80,18 @@ _UV_VALUE_FLAGS = frozenset(
 )  # fmt: skip
 _ASSIGNMENT = re.compile(r"^\$(\w+)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')\s*$")
 
+_TRUST_ENV_NAMES = frozenset({"AGENTNEXUS_DATA_DIR", "HOME", "USERPROFILE"})
+_TRUST_ENV = r"(?:AGENTNEXUS_DATA_DIR|HOME|USERPROFILE)"
+_TRUST_ENV_MUTATION = re.compile(
+    rf"\b{_TRUST_ENV}\b[\"']?\s*="
+    rf"|\b(?:setx|unset)\s+[\"']?{_TRUST_ENV}\b"
+    rf"|\benv\s+(?:-u|--unset(?:=|\s+))\s*{_TRUST_ENV}\b"
+    rf"|\b(?:set-item|new-item|remove-item|clear-item|set-content|clear-content|si|ni|ri|ci)"
+    rf"\s+[^;\n|&]*\benv:{_TRUST_ENV}\b"
+    rf"|SetEnvironmentVariable\s*\(\s*[\"']{_TRUST_ENV}[\"']",
+    re.IGNORECASE,
+)
+
 Verdict = PolicyResponse | None
 
 
@@ -121,6 +135,7 @@ class _Guard:
     def __init__(self, roots: list[re.Pattern[str]], extensions: frozenset[str]):
         self.roots = roots
         self.extensions = extensions
+        self.quality_trust = (data_dir() / "cine-quality-trust").resolve()
 
     def is_code(self, path: str) -> bool:
         match = re.search(r"(\.[A-Za-z0-9]+)$", path.strip().strip("'\""))
@@ -129,8 +144,34 @@ class _Guard:
     def packaged(self, path: str) -> bool:
         return any(root.search(path) for root in self.roots)
 
+    def protected_trust_path(self, value: str) -> bool:
+        if "cine-quality-trust" in value.casefold():
+            return True
+        try:
+            return Path(value).expanduser().resolve().is_relative_to(self.quality_trust)
+        except (OSError, ValueError):
+            return False
+
     def check(self, tool: str, args: dict) -> str | None:
         path = str(args.get("path") or args.get("file_path") or "")
+        for name in (
+            "path",
+            "file_path",
+            "source",
+            "destination",
+            "cwd",
+            "workdir",
+            "working_directory",
+        ):
+            value = args.get(name)
+            if isinstance(value, str) and value and self.protected_trust_path(value):
+                return "The media-quality trust directory is reserved for the runner."
+        for name in ("env", "environment", "environment_variables"):
+            values = args.get(name)
+            if isinstance(values, dict) and any(
+                str(key).upper() in _TRUST_ENV_NAMES for key in values
+            ):
+                return "Changing the runtime media-quality trust root is not allowed."
         if tool in WRITE_TOOLS and path and self.is_code(path):
             return f"Writing code file {path!r} is not allowed."
         if tool in READ_TOOLS and path and self.is_code(path) and self.packaged(path):
@@ -143,6 +184,10 @@ class _Guard:
     def check_command(self, command: str, *, depth: int) -> str | None:
         if depth > 4:
             return "Command nesting is too deep to verify."
+        if "cine-quality-trust" in command.casefold():
+            return "Shell access to the media-quality trust directory is not allowed."
+        if _TRUST_ENV_MUTATION.search(command):
+            return "Changing AGENTNEXUS_DATA_DIR, HOME or USERPROFILE is not allowed."
         variables: dict[str, str] = {}
         for segment in _segments(command):
             assignment = _ASSIGNMENT.match(segment)
@@ -161,6 +206,9 @@ class _Guard:
             argv = argv[1:]
         if not argv:
             return None
+        for token in argv:
+            if self.protected_trust_path(token):
+                return "Shell access to the media-quality trust directory is not allowed."
         head = _basename(argv[0])
         rest = argv[1:]
         if head == "uv" and rest[:1] == ["run"]:
