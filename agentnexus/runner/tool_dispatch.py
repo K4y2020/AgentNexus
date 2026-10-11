@@ -6933,6 +6933,11 @@ async def _execute_seedance_tool(
                 edge_id=edge_id,
                 generation_kind=generation_kind,
                 generation_allowed=generation_allowed,
+                # The bridge rejects malformed ids; dropping them would skip idempotency.
+                generation_request_id=cast(str | None, args.get("generation_request_id")),
+                expected_continuation_job_id=cast(
+                    str | None, args.get("expected_continuation_job_id")
+                ),
                 production_dir=_optional_string(args.get("production_dir")),
                 source_text=_optional_string(args.get("source_text")),
                 production_stage=_optional_string(args.get("production_stage")),

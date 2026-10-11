@@ -150,6 +150,9 @@ def test_tool_manager_has_seedance_edit_canvas():
     assert "expected_revision" in props
     assert "confirm" in props
     assert "generation_allowed" in props
+    assert "generation_request_id" in props
+    assert "expected_continuation_job_id" in props
+    assert "export_video" in props["action"]["enum"]
 
 
 @pytest.mark.asyncio
@@ -242,3 +245,27 @@ async def test_generation_catalog_dispatch_is_read_only():
             )
     assert json.loads(result)["models"][0]["value"] == "test-image"
     assert read.call_args.kwargs["action"] == "models"
+
+
+@pytest.mark.asyncio
+async def test_generation_request_identity_is_forwarded_without_coercion():
+    with patch(
+        "agentnexus.seedance.bridge.execute_seedance_canvas_edit",
+        new=AsyncMock(return_value={"status": "submitted", "job": {"id": "job"}}),
+    ) as edit:
+        async with httpx.AsyncClient() as client:
+            await execute_tool(
+                tool_name="seedance_edit_canvas",
+                arguments=json.dumps(
+                    {
+                        "action": "submit_generation",
+                        "generation_allowed": True,
+                        "generation_request_id": "plan-1:shot-1",
+                        "expected_continuation_job_id": "previous-job",
+                    }
+                ),
+                conversation_id="topic",
+                server_client=client,
+            )
+    assert edit.call_args.kwargs["generation_request_id"] == "plan-1:shot-1"
+    assert edit.call_args.kwargs["expected_continuation_job_id"] == "previous-job"

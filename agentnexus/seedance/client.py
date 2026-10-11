@@ -219,10 +219,15 @@ class SeedanceClient:
         return resp.json()
 
     async def get_local_image(self, storage_ref: str, max_bytes: int) -> bytes:
+        """Compatibility entry for the shared content-addressed media storage."""
+        return await self.get_local_media(storage_ref, max_bytes)
+
+    async def get_local_media(self, storage_ref: str, max_bytes: int) -> bytes:
+        """Download image or video bytes from V3's generic storage route."""
         import re
 
         if not re.fullmatch(r"local://[a-f0-9]{64}", storage_ref):
-            raise SeedanceSecurityError("Invalid local image storage reference")
+            raise SeedanceSecurityError("Invalid local media storage reference")
         chunks = []
         size = 0
         async with self._client.stream(
@@ -233,15 +238,15 @@ class SeedanceClient:
         ) as response:
             if response.status_code != 200:
                 raise SeedanceError(
-                    "Image download failed",
-                    code="CINE_IMAGE_DOWNLOAD_FAILED",
+                    "Media download failed",
+                    code="CINE_MEDIA_DOWNLOAD_FAILED",
                     status_code=response.status_code,
                 )
             async for chunk in response.aiter_bytes():
                 size += len(chunk)
                 if size > max_bytes:
                     raise SeedanceError(
-                        "Image exceeds the supported preview limit", code="CINE_IMAGE_TOO_LARGE"
+                        "Media exceeds the configured download limit", code="CINE_MEDIA_TOO_LARGE"
                     )
                 chunks.append(chunk)
         return b"".join(chunks)
