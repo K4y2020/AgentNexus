@@ -292,6 +292,7 @@ def _record(directory: Path, state: dict, envelope: dict, now: float) -> None:
             return
     elif operation == "preflight" and success == "validated":
         record["status"] = "ready"
+        record.pop("sync_prompt", None)
     elif operation in ("submit", "poll") and success in ("submitted", "completed"):
         if operation == "submit" and result.get("generation_request_id") != record["request_id"]:
             raise ValueError("Submission receipt request ID mismatch")
@@ -460,6 +461,8 @@ def _advance(directory: Path, state: dict, now: float, assemble: bool) -> dict:
                     )
                 )
                 continue
+            if record.get("sync_prompt"):
+                arguments["sync_prompt"] = True
             return _action(
                 state, item, "preflight", {"action": "validate_generation", **arguments}
             )

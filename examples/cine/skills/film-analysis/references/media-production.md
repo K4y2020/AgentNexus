@@ -111,8 +111,11 @@ revision; never change the plan or delete state to evade limits.
   Never write a verdict or substitute a local review file.
 - `edit` with `quality_repair: true`: fix only the named design file using its owning
   skill and the timed defects. After each edit call `next`; it reruns native checks and
-  requests a canvas reimport before generating new media. Keep segment identities and
-  plan scope; a structural redesign that needs new items requires a new revision.
+  requests a canvas reimport before generating new media. With `canvas_strategy:
+  "existing_nodes"` there is no reimport: the next preflight carries `sync_prompt: true`
+  and writes the repaired prompt to that item's own card only, and refuses if the card's
+  prompt was edited on the canvas. Keep segment identities and plan scope; a structural
+  redesign that needs new items requires a new revision.
 - `done` with `delivery: media`, `acceptance: model_reviewed`: the independent review
   passed for these exact outputs. Deliver the review receipt, actual files and known
   sampling limits. This is a model review, not a guarantee or human approval.

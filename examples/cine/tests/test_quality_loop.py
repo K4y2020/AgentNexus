@@ -431,6 +431,62 @@ def test_native_revalidation_and_canvas_import_complete_before_local_reset(run, 
     assert "pending_design" not in state["quality"]
 
 
+def test_existing_nodes_repair_syncs_only_selected_cards_without_import(run, monkeypatch):
+    directory, state = run
+    state["plan"]["canvas_strategy"] = "existing_nodes"
+    configure(run)
+    design(run)
+    before = copy.deepcopy(state["items"])
+    board = production.read(directory / "storyboard.json")
+    board["episodes"][0]["segments"][0]["h3Prompt"] = "corrected first scene"
+    write(directory / "storyboard.json", board)
+    monkeypatch.setattr(
+        autopilot,
+        "_decide",
+        lambda *_a, **_k: {
+            "action": "import_canvas",
+            "arguments": {"action": "import_storyboard"},
+            "blocking_items": 0,
+        },
+    )
+    assert quality_loop.design_step(directory, state) is None
+    assert "pending_design" not in state["quality"]
+    assert state["items"]["first"]["status"] == "pending"
+    assert state["items"]["first"]["sync_prompt"] is True
+    assert state["items"]["second"]["sync_prompt"] is True
+    assert state["items"]["unrelated"] == before["unrelated"]
+
+    action = generation._advance(directory, state, 0.0, assemble=False)
+    assert action["operation"] == "preflight" and action["item_id"] == "first"
+    assert action["arguments"]["action"] == "validate_generation"
+    assert action["arguments"]["sync_prompt"] is True
+    envelope = {"action_id": action["action_id"], "result": {"status": "validated"}}
+    generation._record(directory, state, envelope, 0.0)
+    assert state["items"]["first"]["status"] == "ready"
+    assert "sync_prompt" not in state["items"]["first"]
+    submit = generation._advance(directory, state, 0.0, assemble=False)
+    assert submit["operation"] == "submit" and "sync_prompt" not in submit["arguments"]
+
+
+def test_existing_nodes_repair_still_stops_on_blocking_native_review(run, monkeypatch):
+    directory, state = run
+    state["plan"]["canvas_strategy"] = "existing_nodes"
+    configure(run)
+    design(run)
+    before = copy.deepcopy(state["items"])
+    board = production.read(directory / "storyboard.json")
+    board["episodes"][0]["segments"][0]["h3Prompt"] = "corrected first scene"
+    write(directory / "storyboard.json", board)
+    monkeypatch.setattr(
+        autopilot,
+        "_decide",
+        lambda *_a, **_k: {"action": "import_canvas", "blocking_items": 1},
+    )
+    result = quality_loop.design_step(directory, state)
+    assert result["reason"] == "quality_canvas_review_blocking"
+    assert state["items"] == before
+
+
 def test_same_prompt_upstream_repair_refreshes_pins_and_invalidates_all_derived_media(
     run, monkeypatch
 ):

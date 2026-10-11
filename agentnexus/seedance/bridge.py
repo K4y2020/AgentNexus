@@ -551,6 +551,7 @@ async def execute_seedance_canvas_edit(
     generation_allowed: bool = False,
     generation_request_id: str | None = None,
     expected_continuation_job_id: str | None = None,
+    sync_prompt: bool = False,
     production_dir: str | None = None,
     source_text: str | None = None,
     production_stage: str | None = None,
@@ -648,6 +649,7 @@ async def execute_seedance_canvas_edit(
         proof: dict[str, Any] = {}
         generation_command: dict[str, Any] = {}
         prompt_optimized = False
+        prompt_synced = False
         if action in ("validate_generation", "submit_generation"):
             from agentnexus.seedance.production_gate import assert_current, validate_submission
 
@@ -763,7 +765,7 @@ async def execute_seedance_canvas_edit(
                         gen_input["prompt"] = node_data["prompt"]
                         prompt_optimized = True
                         break
-                    if action == "validate_generation":
+                    if action == "validate_generation" and sync_prompt is not True:
                         raise SeedanceError(
                             "Generation node prompt differs from the selected creative artifact",
                             code="CINE_GENERATION_NODE_PROMPT_MISMATCH",
@@ -792,6 +794,10 @@ async def execute_seedance_canvas_edit(
                                         **node_data,
                                         "prompt": proof["prompt"],
                                         "promptProvenance": None,
+                                        # Pipeline-written: a later sync or import may refresh it.
+                                        "importedPromptSha256": hashlib.sha256(
+                                            proof["prompt"].encode("utf-8")
+                                        ).hexdigest(),
                                     }
                                 },
                                 "commandId": f"cine-sync-prompt-{uuid.uuid4().hex}",
@@ -806,6 +812,7 @@ async def execute_seedance_canvas_edit(
                             "V3 rejected canonical prompt synchronization",
                             code="GENERATION_NODE_CHANGED",
                         )
+                    prompt_synced = True
                     break
                 generation_command.update(nodeId=node_id, expectedPrompt=gen_input["prompt"])
             if action == "validate_generation":
@@ -819,6 +826,7 @@ async def execute_seedance_canvas_edit(
                     "model": preflight.get("model"),
                     "reference_count": preflight.get("referenceCount"),
                     "validation_reports": proof["report_paths"],
+                    "prompt_synced": prompt_synced,
                     "next_step": "Submit with the same inputs only within existing generation authorization.",
                 }
             try:

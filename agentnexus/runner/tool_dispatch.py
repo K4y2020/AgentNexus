@@ -6957,6 +6957,7 @@ async def _execute_seedance_tool(
                 expected_continuation_job_id=cast(
                     str | None, args.get("expected_continuation_job_id")
                 ),
+                sync_prompt=args.get("sync_prompt") is True,
                 production_dir=_optional_string(args.get("production_dir")),
                 source_text=_optional_string(args.get("source_text")),
                 production_stage=_optional_string(args.get("production_stage")),

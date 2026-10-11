@@ -194,6 +194,10 @@ class SeedanceEditCanvasTool(Tool):
                             "type": "string",
                             "description": "For continuation video validate_generation/submit_generation: exact succeeded preceding job selected by the production plan. Its current last-frame slot, source video and resolved reference must match before submission.",
                         },
+                        "sync_prompt": {
+                            "type": "boolean",
+                            "description": "For validate_generation only when the production controller requests it: first write the checked artifact prompt to this bound node. Refused if the node's prompt was edited on the canvas.",
+                        },
                         "generation_request_id": {
                             "type": "string",
                             "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",

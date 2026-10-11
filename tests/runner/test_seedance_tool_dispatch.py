@@ -186,6 +186,7 @@ def test_tool_manager_has_seedance_edit_canvas():
     assert "generation_allowed" in props
     assert "generation_request_id" in props
     assert "expected_continuation_job_id" in props
+    assert props["sync_prompt"]["type"] == "boolean"
     assert "export_video" in props["action"]["enum"]
 
 
@@ -303,3 +304,20 @@ async def test_generation_request_identity_is_forwarded_without_coercion():
             )
     assert edit.call_args.kwargs["generation_request_id"] == "plan-1:shot-1"
     assert edit.call_args.kwargs["expected_continuation_job_id"] == "previous-job"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("value", "forwarded"), [(True, True), ("true", False), (None, False)])
+async def test_preflight_prompt_sync_is_forwarded_only_as_a_real_boolean(value, forwarded):
+    with patch(
+        "agentnexus.seedance.bridge.execute_seedance_canvas_edit",
+        new=AsyncMock(return_value={"status": "validated"}),
+    ) as edit:
+        async with httpx.AsyncClient() as client:
+            await execute_tool(
+                tool_name="seedance_edit_canvas",
+                arguments=json.dumps({"action": "validate_generation", "sync_prompt": value}),
+                conversation_id="topic",
+                server_client=client,
+            )
+    assert edit.call_args.kwargs["sync_prompt"] is forwarded

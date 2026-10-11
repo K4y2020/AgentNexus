@@ -189,7 +189,7 @@ def _reserve_possible(state, affected):
     )
 
 
-def _reset(state, affected):
+def _reset(state, affected, *, sync_prompt=False):
     quality = state["quality"]
     quality.setdefault("versions", []).append(
         {
@@ -205,6 +205,9 @@ def _reset(state, affected):
             "attempts": previous["attempts"],
             "history": previous.get("history", []),
         }
+        if sync_prompt:
+            # Existing cards still hold the old prompt; preflight writes the repaired one.
+            state["items"][identity]["sync_prompt"] = True
     quality.pop("envelope", None)
     quality.pop("disposition", None)
 
@@ -359,12 +362,14 @@ def design_step(directory, state, *, retry=False):
         if pending["edits"] >= config["max_design_edits"]:
             return generation._blocked("quality_design_edits_exhausted", decision)
         return {**decision, "quality_repair": True}
-    if decision["action"] == "import_canvas":
+    # existing_nodes never imports the full storyboard; only the selected cards are synced.
+    existing_nodes = state["plan"].get("canvas_strategy") == "existing_nodes"
+    if decision["action"] == "import_canvas" and not existing_nodes:
         pending["waiting_for_canvas"] = True
         return decision
-    if decision["action"] != "done":
+    if decision["action"] not in ("done", "import_canvas"):
         return decision
-    if decision.get("delivery") != "canvas":
+    if decision["action"] == "done" and decision.get("delivery") != "canvas":
         return generation._blocked("quality_canvas_sync_required", decision)
     if decision.get("blocking_items"):
         return generation._blocked("quality_canvas_review_blocking", draft_run.queue)
@@ -399,7 +404,7 @@ def design_step(directory, state, *, retry=False):
     state["inputs"] = generation._inputs(
         directory, Path(state["source_text"]) if state.get("source_text") else None
     )
-    _reset(state, affected)
+    _reset(state, affected, sync_prompt=existing_nodes)
     quality.pop("pending_design")
     return None
 
