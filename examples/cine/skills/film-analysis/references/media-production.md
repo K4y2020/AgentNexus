@@ -142,6 +142,11 @@ motion and exaggerated expressions. Motivated stillness and long takes may be ri
 The result localizes defects by actual item and time range, with an observed behavior,
 the expected behavior, severity, confidence and repair objective. Cut IDs are used only
 when actual timing was mapped; storyboard cut timing is not proof of a generated cut.
+Before review the runner measures hard cuts in every clip over all decoded frames, with
+the detector and threshold used for source shots. The measured shots become the item's
+cut IDs, and the report lists them. One shot spanning a clip means no hard cut was found,
+which settles a continuous-take requirement without another paid review. Gradual
+dissolves can escape it; if the detector is unavailable, nothing was measured.
 For `generation_execution` failures, only those items and their dependent continuations
 are regenerated. `source_design` failures return to the named native stage first.
 Uncertain or incomplete evidence requires review rather than speculative regeneration.

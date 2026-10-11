@@ -240,6 +240,31 @@ def probe_video(path: Path) -> dict:
         ) from None
 
 
+# Same detector and threshold as the film-analysis source shot detection.
+CUT_DETECTOR = {"method": "pyscenedetect_content", "threshold": 27.0}
+
+
+def measure_cuts(path: Path) -> dict:
+    """Hard cuts measured over every decoded frame; never a verdict on the cuts."""
+    try:
+        from scenedetect import SceneManager, open_video
+        from scenedetect.detectors import ContentDetector
+    except ImportError:
+        return {**CUT_DETECTOR, "status": "unavailable", "cut_seconds": []}
+    try:
+        manager = SceneManager()
+        manager.add_detector(ContentDetector(threshold=CUT_DETECTOR["threshold"]))
+        manager.detect_scenes(open_video(str(path)), show_progress=False)
+        starts = [start for start, _end in manager.get_scene_list()[1:]]
+        seconds = [
+            float(start.seconds if hasattr(type(start), "seconds") else start.get_seconds())
+            for start in starts
+        ]
+    except Exception:  # noqa: BLE001 - an unreadable stream must not read as a continuous take
+        return {**CUT_DETECTOR, "status": "failed", "cut_seconds": []}
+    return {**CUT_DETECTOR, "status": "measured", "cut_seconds": sorted(set(seconds))}
+
+
 def _body(prompt: str, response_schema: dict, data: bytes, has_audio: bool) -> bytes:
     note = (
         "The attached MP4 contains the complete video and its soundtrack. Inspect both. "

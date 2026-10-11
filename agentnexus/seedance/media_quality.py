@@ -19,13 +19,14 @@ from .client import SeedanceClient
 from .media_quality_contract import (
     QUALITY_RUBRIC,
     QualityContractError,
+    measured_shots,
     quality_response_schema,
     validate_quality_report,
 )
 from .production_gate import inside
 from .skill_modules import pipeline_module
 
-REVIEW_VERSION = 2
+REVIEW_VERSION = 3
 
 
 def _hash(value) -> str:
@@ -60,6 +61,18 @@ def _review_markdown(review: dict) -> str:
             "质检模型未直接读取视频流或音轨。",
             "",
         ]
+    detections = review.get("cut_detection") or {}
+    if detections:
+        lines += ["## 实测硬切（逐帧检测，片段内时间）", ""]
+        for identity, row in detections.items():
+            if row["status"] != "measured":
+                text = f"未测量（{row['status']}）"
+            elif row["cut_seconds"]:
+                text = "、".join(f"{t:.2f}" for t in row["cut_seconds"]) + " 秒"
+            else:
+                text = "无，整段是一个连续镜头"
+            lines.append(f"- {identity}：{text}")
+        lines.append("")
     observations = {row["id"]: row for row in report["observations"]}
     for issue in report["issues"]:
         times = [
@@ -123,6 +136,14 @@ def _prompt(
         "On reinspection, explicitly check the previous defects and whether the replacement "
         "created a new problem elsewhere. Preserve the approved genre and intended pace. "
         "A quiet scene or long take does not fail merely for being quiet or long.\n"
+        "Each item's cut_detection measured hard cuts over every decoded frame, and its cuts "
+        "are the measured shots between them. When its status is measured, it settles hard "
+        "cuts: one shot spanning the item means no hard cut was found, and each cut_seconds "
+        "value is a hard cut. Cite these facts with the matching cut_id. Do not call a "
+        "hard-cut or continuous-take question uncertain only because sampled frames or other "
+        "observations did not mention cuts. Gradual dissolves and very fast whip pans can "
+        "escape this measurement; say so only when you see one. Any other status measured "
+        "nothing.\n"
     )
     evidence = {
         "request": request,
@@ -150,7 +171,14 @@ def _prompt(
 
 
 def _make_request(
-    directory: Path, state: dict, snapshot: dict, prod, probe, assembler, job_prompts=None
+    directory: Path,
+    state: dict,
+    snapshot: dict,
+    prod,
+    probe,
+    assembler,
+    job_prompts=None,
+    measure=None,
 ) -> tuple[dict, dict, Path]:
     plan = state["plan"]
     videos = [item for item in plan["items"] if item["kind"] == "video"]
@@ -160,7 +188,7 @@ def _make_request(
     if set(order) != {item["id"] for item in videos}:
         raise ValueError("The quality assembly must cover all planned video items")
     by_id = {item["id"]: item for item in videos}
-    request_items, offset = [], 0.0
+    request_items, detections, offset = [], [], 0.0
     for identity in order:
         item = by_id[identity]
         row = state["items"][identity]
@@ -170,6 +198,7 @@ def _make_request(
             raise ValueError("A reviewed export changed or escaped this Topic")
         meta = probe(path)
         duration = float(meta["duration_seconds"])
+        detections.append(measure(path) if measure else None)
         request_items.append(
             {
                 "item_id": identity,
@@ -217,6 +246,13 @@ def _make_request(
         assembled = None
     else:
         raise ValueError("Whole-film quality needs an assembled video, not isolated clip scores")
+    for row, detection in zip(request_items, detections, strict=True):
+        if detection is None:
+            continue
+        times = [t for t in detection["cut_seconds"] if 0 < t < row["duration_seconds"]]
+        row["cut_detection"] = {**detection, "cut_seconds": times}
+        if detection["status"] == "measured":
+            row["cuts"] = measured_shots(times, row["duration_seconds"])
     request = {
         "plan_sha256": state["plan_sha256"],
         "requirements": plan["quality"]["requirements"],
@@ -356,7 +392,12 @@ async def review_media(
     reviewer=None,
 ) -> dict:
     """Read inputs and call the independent reviewer; no model-supplied verdict is accepted."""
-    from .media_quality_provider import MediaReviewUnavailable, probe_video, review_video
+    from .media_quality_provider import (
+        MediaReviewUnavailable,
+        measure_cuts,
+        probe_video,
+        review_video,
+    )
     from .media_quality_receipts import review_usage_path, sign_review, verify_review
 
     response = await server.get(f"/v1/sessions/{session_id}", timeout=10)
@@ -486,6 +527,7 @@ async def review_media(
             probe_video,
             pipeline_module(skills_dir, "media_assembly").assemble,
             job_prompts,
+            measure_cuts,
         )
         history = (state.get("quality") or {}).get("history") or []
         previous = baseline_report

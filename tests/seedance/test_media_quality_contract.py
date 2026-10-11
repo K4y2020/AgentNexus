@@ -7,6 +7,7 @@ import pytest
 from agentnexus.seedance.media_quality_contract import (
     CRITERIA,
     QualityContractError,
+    measured_shots,
     quality_response_schema,
     validate_quality_report,
 )
@@ -701,3 +702,54 @@ def test_partial_observer_video_remains_review_even_when_audio_is_complete(revie
     assert result["decision"] == "review"
     assert result["coverage_by_source"]["observer"]["items"]["first"]["video"] is True
     assert result["coverage_by_source"]["observer"]["items"]["second"]["video"] is False
+
+
+def _measured(cut_seconds):
+    return {
+        "status": "measured",
+        "method": "pyscenedetect_content",
+        "threshold": 27.0,
+        "cut_seconds": cut_seconds,
+    }
+
+
+def test_measured_single_shot_is_reported_with_the_review(review_case):
+    request = review_case[0]
+    request["items"][0]["cut_detection"] = _measured([])
+    request["items"][0]["cuts"] = measured_shots([], 4.0)
+    request["items"][0]["cuts"][0]["cut_id"] = "cut-1"
+    with pytest.raises(QualityContractError, match="measured shots"):
+        validate(review_case)
+    request["items"][0]["cuts"] = measured_shots([], 4.0)
+    review_case[2]["observations"][0]["cut_id"] = "shot-1"
+    result = validate(review_case)
+    assert result["decision"] == "pass"
+    assert result["cut_detection"] == {"first": _measured([])}
+
+
+@pytest.mark.parametrize("cut_seconds", [[2.5, 1.0], [0.0], [4.0], [1.0, 1.0]])
+def test_measured_cuts_must_lie_ordered_inside_the_item(review_case, cut_seconds):
+    item = review_case[0]["items"][0]
+    item["cut_detection"] = _measured(cut_seconds)
+    item["cuts"] = measured_shots(cut_seconds, 4.0)
+    with pytest.raises(QualityContractError):
+        validate(review_case)
+
+
+def test_measured_hard_cut_splits_the_item_into_citable_shots(review_case):
+    item = review_case[0]["items"][0]
+    item["cut_detection"] = _measured([1.5])
+    item["cuts"] = measured_shots([1.5], 4.0)
+    assert [cut["cut_id"] for cut in item["cuts"]] == ["shot-1", "shot-2"]
+    observation = review_case[2]["observations"][0]
+    observation.update(cut_id="shot-2", start_seconds=1.5, end_seconds=4.0)
+    assert validate(review_case)["cut_detection"]["first"]["cut_seconds"] == [1.5]
+    observation.update(start_seconds=1.0)
+    with pytest.raises(QualityContractError, match="observation cut"):
+        validate(review_case)
+
+
+def test_unmeasured_detection_keeps_cuts_unmapped(review_case):
+    item = review_case[0]["items"][0]
+    item["cut_detection"] = {**_measured([]), "status": "unavailable"}
+    assert validate(review_case)["cut_detection"]["first"]["status"] == "unavailable"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from itertools import pairwise
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -70,6 +71,13 @@ class Cut(_Strict):
     end_seconds: Duration
 
 
+class CutDetection(_Strict):
+    status: Literal["measured", "unavailable", "failed"]
+    method: Text
+    threshold: float
+    cut_seconds: list[Seconds] = Field(default_factory=list)
+
+
 class ReviewItem(_Strict):
     item_id: Text
     job_id: Text
@@ -79,6 +87,7 @@ class ReviewItem(_Strict):
     timeline_start_seconds: Seconds
     has_audio: bool
     cuts: list[Cut] = Field(default_factory=list)
+    cut_detection: CutDetection | None = None
     prompt_text: str = ""
 
 
@@ -231,6 +240,15 @@ def _interval(start: float, end: float, low: float, high: float, label: str) -> 
     _require(low - 1e-6 <= start < end <= high + 1e-6, f"{label}: invalid time range")
 
 
+def measured_shots(cut_seconds: list[float], duration: float) -> list[dict]:
+    """Shots between measured hard cuts; one shot spanning the item means none was found."""
+    bounds = [0.0, *(t for t in cut_seconds if 0 < t < duration), duration]
+    return [
+        {"cut_id": f"shot-{index + 1}", "start_seconds": start, "end_seconds": end}
+        for index, (start, end) in enumerate(pairwise(bounds))
+    ]
+
+
 def _covered(spans: list[tuple[float, float]], start: float, end: float) -> bool:
     cursor = start
     for low, high in sorted(spans):
@@ -317,6 +335,18 @@ def validate_quality_report(
         _unique(item.cuts, "cut_id")
         for cut in item.cuts:
             _interval(cut.start_seconds, cut.end_seconds, 0, item.duration_seconds, cut.cut_id)
+        detection = item.cut_detection
+        if detection is not None and detection.status == "measured":
+            _require(
+                detection.cut_seconds == sorted(set(detection.cut_seconds))
+                and all(0 < t < item.duration_seconds for t in detection.cut_seconds),
+                "measured cuts must be ordered inside the item",
+            )
+            _require(
+                [cut.model_dump() for cut in item.cuts]
+                == measured_shots(detection.cut_seconds, item.duration_seconds),
+                "item cuts must be the measured shots",
+            )
     if req.assembly:
         _require(req.assembly.item_ids == order, "assembly item order mismatch")
         previous_end = 0.0
@@ -668,6 +698,11 @@ def validate_quality_report(
             for item in req.items
         ],
         "assembly_sha256": req.assembly.sha256 if req.assembly else None,
+        "cut_detection": {
+            item.item_id: item.cut_detection.model_dump()
+            for item in req.items
+            if item.cut_detection is not None
+        },
         "media": [receipt.model_dump() for receipt in call.media],
         "report": normalized,
         "coverage": coverage,

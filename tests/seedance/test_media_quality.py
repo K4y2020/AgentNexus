@@ -1005,3 +1005,67 @@ async def test_cross_revision_reference_does_not_relax_existing_history_binding(
     with pytest.raises(ValueError, match="another production"):
         await run.invoke()
     assert len(run.calls) == 1
+
+
+async def test_measured_cuts_reach_the_reviewer_signed_review_and_report(review_run, monkeypatch):
+    from agentnexus.seedance import media_quality_provider
+
+    measured = {
+        "method": "pyscenedetect_content",
+        "threshold": 27.0,
+        "status": "measured",
+        "cut_seconds": [0.2],
+    }
+    monkeypatch.setattr(media_quality_provider, "measure_cuts", lambda _path: dict(measured))
+    result = await review_run.invoke()
+    assert result["status"] == "reviewed", result
+    item = review_run.last_evidence["request"]["items"][0]
+    assert item["cut_detection"] == measured
+    assert [cut["cut_id"] for cut in item["cuts"]] == ["shot-1", "shot-2"]
+    assert item["cuts"][1]["start_seconds"] == 0.2
+    payload = verify_review(result["envelope"])
+    assert payload["review"]["cut_detection"] == {"item-0": measured}
+    report = Path(result["report_path"]).read_text(encoding="utf-8")
+    assert "item-0：0.20 秒" in report
+
+
+def _two_shot_video(path, seconds=2.0):
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        pytest.skip("FFmpeg is needed to render a real hard cut")
+    pytest.importorskip("scenedetect")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    graph = (
+        f"color=c=red:s=96x64:r=24:d={seconds}[a];"
+        f"testsrc2=s=96x64:r=24:d={seconds}[b];[a][b]concat=n=2:v=1:a=0"
+    )
+    subprocess.run(
+        [
+            *(ffmpeg, "-hide_banner", "-nostdin", "-v", "error", "-filter_complex", graph),
+            *("-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-n", str(path)),
+        ],
+        check=True,
+        capture_output=True,
+        timeout=30,
+    )
+    return path
+
+
+def test_measure_cuts_finds_a_real_hard_cut_and_none_in_a_continuous_take(tmp_path):
+    from agentnexus.seedance.media_quality_provider import measure_cuts
+
+    cut = measure_cuts(_two_shot_video(tmp_path / "cut.mp4"))
+    assert cut["status"] == "measured" and cut["threshold"] == 27.0
+    assert len(cut["cut_seconds"]) == 1 and abs(cut["cut_seconds"][0] - 2.0) < 0.1
+    take = measure_cuts(video(tmp_path / "take.mp4", duration=3.0))
+    assert take == {**take, "status": "measured", "cut_seconds": []}
+
+
+def test_missing_detector_is_reported_as_unmeasured(tmp_path, monkeypatch):
+    import sys
+
+    from agentnexus.seedance.media_quality_provider import measure_cuts
+
+    monkeypatch.setitem(sys.modules, "scenedetect", None)
+    result = measure_cuts(tmp_path / "absent.mp4")
+    assert result["status"] == "unavailable" and result["cut_seconds"] == []
