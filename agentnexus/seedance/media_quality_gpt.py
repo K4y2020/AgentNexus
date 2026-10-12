@@ -21,6 +21,7 @@ from .media_quality_provider import MediaReviewUnavailable
 
 MAX_FRAMES = 120
 MAX_REQUEST_BYTES = 25_000_000
+OBSERVER_END_ROUNDING = 1.0
 OBSERVER_SCHEMA = {
     "type": "object",
     "properties": {
@@ -274,6 +275,20 @@ def _frames(path: Path, directory: Path, metadata: dict, source_hash: str) -> tu
     return content, receipts
 
 
+def _clamp_rounded_ends(observed: dict, duration: float) -> None:
+    """The observer samples about once a second, so a final end may round up past the file."""
+    report = observed.get("report") if isinstance(observed, dict) else None
+    rows = report.get("observations") if isinstance(report, dict) else None
+    for row in rows if isinstance(rows, list) else []:
+        end = row.get("end_seconds") if isinstance(row, dict) else None
+        if (
+            isinstance(end, (int, float))
+            and not isinstance(end, bool)
+            and duration < end < duration + OBSERVER_END_ROUNDING
+        ):
+            row["end_seconds"] = duration
+
+
 def _validate_observer(observed: dict, original: dict, original_hash: str) -> None:
     if not isinstance(observed, dict) or observed.get("original_sha256") != original_hash:
         raise MediaReviewUnavailable("OBSERVER_INVALID", "Observer is not bound to this video")
@@ -448,6 +463,7 @@ async def review_evidence(
             timeout_seconds=timeout_seconds,
             client=client,
         )
+        _clamp_rounded_ends(observed, original["duration_seconds"])
         _validate_observer(observed, original, original_hash)
         if await asyncio.to_thread(native._digest, path) != original_hash:
             raise MediaReviewUnavailable("MEDIA_CHANGED", "Input changed before GPT review")

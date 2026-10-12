@@ -303,6 +303,7 @@ async def test_silent_video_never_gains_an_audio_receipt(media_files):
         lambda r: r.update(original_sha256="0" * 64),
         lambda r: r.update(report={"decision": "pass", "observations": []}),
         lambda r: r["report"]["observations"][0].update(end_seconds=999),
+        lambda r: r["report"]["observations"][0].update(end_seconds=r["duration_seconds"] + 1.5),
         lambda r: r["invocation"]["capabilities"].update(
             supported_input_modalities=["text", "image"]
         ),
@@ -328,6 +329,38 @@ async def test_invalid_or_non_av_observer_cannot_reach_gpt(video, change):
                 observer=Observer(change),
             )
     assert not posts
+
+
+async def test_final_observation_rounded_past_the_end_is_clamped_to_the_file(video):
+    posted = []
+
+    def handle(request):
+        if request.method == "POST":
+            posted.append(json.loads(request.content))
+            return httpx.Response(200, json=reply())
+        return httpx.Response(200, json=catalog())
+
+    def round_up(result):
+        result["report"]["observations"][0]["end_seconds"] = 3.0
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        await gpt.review_evidence(
+            path=video,
+            prompt="Review",
+            response_schema=SCHEMA,
+            settings=SETTINGS,
+            observer_settings=OBSERVER,
+            client=client,
+            observer=Observer(round_up),
+        )
+    evidence = next(
+        json.loads(part["text"].removeprefix("ACTUAL EVIDENCE:\n"))
+        for part in posted[0]["input"][0]["content"]
+        if part.get("text", "").startswith("ACTUAL EVIDENCE:")
+    )
+    duration = evidence["observer_media"][0]["end_seconds"]
+    assert duration < 3.0
+    assert evidence["observer_observations"]["observations"][0]["end_seconds"] == duration
 
 
 async def test_observer_failure_does_not_fallback_to_another_judge(video):
