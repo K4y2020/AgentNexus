@@ -847,6 +847,135 @@ async def _connect_once(client, project_id, edges: set, source, target, kind, ta
     edges.add((source, target, kind))
 
 
+RETIRED_TITLE_PREFIX = "[已作废] "
+
+
+def _media_index(snapshot: dict) -> dict[str, dict] | None:
+    entries = snapshot.get("node_media")
+    if not isinstance(entries, list):
+        return None
+    return {m["nodeId"]: m for m in entries if isinstance(m, dict) and m.get("nodeId")}
+
+
+def _holds_user_work(node: dict, media: dict[str, dict] | None) -> bool:
+    """Whether a card holds generated media (even hidden), any job, or a prompt edited by hand."""
+    data = node.get("data") or {}
+    if data.get("activeOutputRef") or data.get("assetRef"):
+        return True
+    if node.get("type") == "video_prompt" and _prompt_edited_on_canvas(data):
+        return True
+    state = (media or {}).get(str(node.get("id")))
+    if state is None:
+        return True  # the server did not report this card's media: never delete blind
+    return bool(
+        state.get("outputUrl")
+        or state.get("latestJob")
+        or state.get("pendingJobCount")
+        or state.get("mediaState") not in (None, "no_output")
+    )
+
+
+def _stale_storyboard_nodes(
+    snapshot: dict, kept: set, boards: set, used_frames: set
+) -> tuple[list[dict], list[dict]]:
+    """Imported cards whose segment left the storyboard, and last-frame slots no segment uses."""
+    derived = {
+        e.get("to")
+        for e in snapshot.get("edges") or []
+        if isinstance(e, dict) and e.get("kind") == "derives" and e.get("from") in boards
+    }
+    imported = [
+        n
+        for n in snapshot.get("nodes", [])
+        if n.get("type") == "video_prompt"
+        and n.get("id") in derived
+        and (n.get("data") or {}).get("production_stage") == "storyboard"
+    ]
+    cards = [
+        n for n in imported if (n.get("data") or {}).get("segmentId") not in (None, "", *kept)
+    ]
+    removed = {n["id"] for n in cards}
+    targets = {n["id"] for n in imported}
+    slots = [
+        n
+        for n in snapshot.get("nodes", [])
+        if n.get("type") == "image"
+        and n.get("id") not in used_frames
+        and (
+            (n.get("data") or {}).get("continuationTargetNodeId") in targets
+            or (n.get("data") or {}).get("continuationSourceNodeId") in removed
+        )
+    ]
+    return cards, slots
+
+
+async def _retire_removed_segments(
+    client, project_id, storyboard: dict, episode_nodes: dict, used_frames: set
+) -> dict[str, list[str]]:
+    """Clear what a changed storyboard left behind without losing anything generated.
+
+    Cards of segments that are gone and last-frame slots no segment uses are deleted
+    when empty; a card holding media or a hand edit is renamed 已作废 and unbound from
+    the storyboard instead, and a filled last frame stays as it is.
+    """
+    kept = {
+        seg.get("id") for ep in storyboard.get("episodes", []) for seg in ep.get("segments", [])
+    }
+    boards = {str(node_id) for node_id in episode_nodes.values() if node_id}
+    cards, slots = _stale_storyboard_nodes(
+        await client.get_snapshot(project_id), kept, boards, used_frames
+    )
+    report: dict[str, list[str]] = {"removed": [], "retired": [], "frames": [], "conflicts": []}
+    for node in [*slots, *cards]:
+        latest = await client.get_snapshot(project_id)
+        current = next((n for n in latest.get("nodes", []) if n.get("id") == node["id"]), None)
+        if current is None:
+            continue
+        is_card = current.get("type") == "video_prompt"
+        data = current.get("data") or {}
+        label = str(data.get("segmentId") if is_card else current.get("title") or current["id"])
+        if not _holds_user_work(current, _media_index(latest)):
+            command = {"type": "canvas.delete_node", "nodeId": current["id"]}
+            outcome = "removed" if is_card else "frames"
+        elif is_card:
+            title = str(current.get("title") or label)
+            unbound = {
+                k: v
+                for k, v in data.items()
+                if k not in ("production_stage", "production_pointer")
+            }
+            command = {
+                "type": "canvas.update_node",
+                "nodeId": current["id"],
+                "patch": {
+                    "title": title
+                    if title.startswith(RETIRED_TITLE_PREFIX)
+                    else RETIRED_TITLE_PREFIX + title,
+                    "data": {**unbound, "retired": True},
+                },
+            }
+            outcome = "retired"
+        else:
+            continue  # a filled last frame is an output and stays as it is
+        command["commandId"] = f"cine-prune-{uuid.uuid4().hex[:8]}"
+        if latest.get("revision") is not None:
+            command["expectedRevision"] = latest["revision"]
+        try:
+            result = await client.submit_command(project_id, command)
+        except SeedanceError as exc:
+            if exc.code == "CANVAS_NODE_NOT_FOUND":
+                continue
+            if exc.code != "REVISION_CONFLICT":
+                raise
+            result = {"accepted": False}
+        report[outcome if result.get("accepted") else "conflicts"].append(label)
+        if outcome == "frames" and result.get("accepted"):
+            # The card it pointed at may stay; its exclusion of the slot is now moot.
+            target = data.get("continuationTargetNodeId")
+            await _exclude_references(client, project_id, target, set(), {f"node:{node['id']}"})
+    return report
+
+
 async def import_storyboard(
     server,
     session_id,
@@ -1034,7 +1163,9 @@ async def import_storyboard(
         video_cards = {
             (n.get("data") or {}).get("segmentId"): n
             for n in curr_nodes.values()
-            if n.get("type") == "video_prompt" and (n.get("data") or {}).get("segmentId")
+            if n.get("type") == "video_prompt"
+            and (n.get("data") or {}).get("segmentId")
+            and not (n.get("data") or {}).get("retired")
         }
         char_nodes = _asset_nodes(list(curr_nodes.values()), "characterId")
         scene_nodes = _asset_nodes(list(curr_nodes.values()), "sceneId")
@@ -1179,6 +1310,7 @@ async def import_storyboard(
             scene_nodes[sid] = new_snode
 
         prompts_aligned = 0
+        used_frames: set[str] = set()
         if subject_judge is None:
             subject_judge = _default_subject_judge
         for ep_index, ep in enumerate(storyboard.get("episodes", [])):
@@ -1311,6 +1443,7 @@ async def import_storyboard(
                         client, bound, edges, frame["id"], card_id, "references", f"lf-{seg_id}"
                     )
                     frame_ref = f"node:{frame['id']}"
+                    used_frames.add(frame["id"])
                     frame_entities = {frame_ref: ("frame", str(continued_from))}
                 wanted = set(segment_assets) | ({snode["id"]} if snode else set())
                 snapshot = await client.get_snapshot(bound)
@@ -1421,6 +1554,11 @@ async def import_storyboard(
                             seg["h3Prompt"] = aligned_prompt
                             prompts_aligned += 1
 
+        pruned = await _retire_removed_segments(
+            client, bound, storyboard, episode_nodes, used_frames
+        )
+        conflicts.extend(pruned["conflicts"])
+
         if prompts_aligned > 0 and storyboard_path.is_file():
             if hashlib.sha256(storyboard_path.read_bytes()).hexdigest() != hashes[storyboard_path]:
                 raise ProductionRejected("CINE_IMPORT_SOURCE_CHANGED")
@@ -1484,6 +1622,22 @@ async def import_storyboard(
             f"import: {', '.join(preserved)}. Compare them with the new storyboard "
             "before generation."
         )
+    if pruned["removed"]:
+        next_step += (
+            " Deleted the cards of segments the storyboard no longer has; nothing had been "
+            f"generated on them: {', '.join(pruned['removed'])}."
+        )
+    if pruned["frames"]:
+        next_step += (
+            f" Deleted {len(pruned['frames'])} empty last-frame slot(s) that no segment "
+            "continues from any more."
+        )
+    if pruned["retired"]:
+        next_step += (
+            f" Renamed {RETIRED_TITLE_PREFIX.strip()} and unbound, not deleted, because they hold "
+            "generated media or canvas edits while their segments left the storyboard: "
+            f"{', '.join(pruned['retired'])}."
+        )
     if conflicts:
         next_step += (
             f" Not updated because the canvas changed during import: {', '.join(conflicts)}. "
@@ -1507,6 +1661,9 @@ async def import_storyboard(
             "character_state_assets_linked": len(referenced_states),
             "scene_assets_linked": len(scene_nodes),
             "preserved_edited_cards": preserved,
+            "removed_stale_cards": pruned["removed"],
+            "removed_stale_frames": len(pruned["frames"]),
+            "retired_stale_cards": pruned["retired"],
             "update_conflicts": conflicts,
             "subject_alignment_review": alignment_review,
         },
