@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+from agentnexus_client._http import is_loopback_url
 
 from agentnexus.seedance.env_keys import read_key
 
@@ -114,7 +115,10 @@ class SeedanceClient:
             else float(os.environ.get("SEEDANCE_CONNECTOR_TIMEOUT_S", DEFAULT_SEEDANCE_TIMEOUT_S))
         )
         self._external_client = client is not None
-        self._client = client or httpx.AsyncClient(timeout=self.timeout_s)
+        # A system proxy (Windows reads it from the registry) cannot reach a local V3.
+        self._client = client or httpx.AsyncClient(
+            timeout=self.timeout_s, trust_env=not is_loopback_url(self.base_url)
+        )
 
     async def close(self) -> None:
         if not self._external_client:
