@@ -381,12 +381,18 @@ export function expandScript(script) {
         };
       }),
     }));
-    eps.set(ep.ep, { ep: ep.ep, targetSeconds: ep.targetSeconds, scenes });
+    // 剧本预估时长：用户没定目标时，它就是本集该拍多久
+    const estSeconds = r1(scenes.reduce((n, sc) => n + sc.beats.reduce((m, b) => m + b.seconds, 0), 0));
+    eps.set(ep.ep, { ep: ep.ep, targetSeconds: ep.targetSeconds, estSeconds, scenes });
   }
   return eps;
 }
 
 export const segSeconds = (segment) => r1((segment?.cuts ?? []).reduce((n, c) => n + (c?.seconds ?? 0), 0));
+
+/** 一集该拍多久：剧本有目标用目标，用户没定时长时用剧本预估。返回 [秒数, 叫法]。 */
+export const episodeLength = (sEp) =>
+  sEp?.targetSeconds > 0 ? [sEp.targetSeconds, '目标'] : [sEp?.estSeconds ?? 0, '剧本预估'];
 
 /* ------------------------------------------------------------------ */
 /* Cinematic audit (read-only)                                          */
@@ -1083,7 +1089,8 @@ export function computeStats(board, script) {
     }
     episodes.push({
       ep: ep.ep,
-      target: sEp?.targetSeconds ?? 0,
+      target: episodeLength(sEp)[0],
+      scriptLength: Boolean(sEp) && !(sEp.targetSeconds > 0),
       segments: (ep?.segments ?? []).length,
       cuts: cutCount,
       totalSeconds: r1(total),
@@ -1097,6 +1104,7 @@ export function computeStats(board, script) {
     cuts: episodes.reduce((n, e) => n + e.cuts, 0),
     seconds: r1(episodes.reduce((n, e) => n + e.totalSeconds, 0)),
     targetSeconds: episodes.reduce((n, e) => n + e.target, 0),
+    scriptLength: episodes.some((e) => e.scriptLength),
     withLines: episodes.reduce((n, e) => n + e.withLines, 0),
     avgCutSeconds: 0,
   };
@@ -1684,13 +1692,14 @@ export function gateReport(board, ctx = {}) {
         }
       }
 
-      // 每集总时长对齐剧本目标
-      if (sEp.targetSeconds > 0) {
+      // 每集总时长对齐剧本：有目标对目标，没定目标就对剧本预估（编剧定长）
+      const [refSeconds, refLabel] = episodeLength(sEp);
+      if (refSeconds > 0) {
         const total = (ep?.segments ?? []).reduce((n, s) => n + segSeconds(s), 0);
-        const lo = sEp.targetSeconds * (1 - params.tolerance);
-        const hi = sEp.targetSeconds * (1 + params.tolerance);
-        if (total < lo) bad.duration.push(`${label} 欠 ${r1(lo - total)} 秒（${r1(total)}s / 目标 ${sEp.targetSeconds}s）`);
-        if (total > hi) bad.duration.push(`${label} 超 ${r1(total - hi)} 秒（${r1(total)}s / 目标 ${sEp.targetSeconds}s）`);
+        const lo = refSeconds * (1 - params.tolerance);
+        const hi = refSeconds * (1 + params.tolerance);
+        if (total < lo) bad.duration.push(`${label} 欠 ${r1(lo - total)} 秒（${r1(total)}s / ${refLabel} ${refSeconds}s）`);
+        if (total > hi) bad.duration.push(`${label} 超 ${r1(total - hi)} 秒（${r1(total)}s / ${refLabel} ${refSeconds}s）`);
       }
     }
   }
@@ -1707,7 +1716,7 @@ export function gateReport(board, ctx = {}) {
   const takeProblems = continuousTakeProblems(board, ctx);
   add('continuous-take', '保留逐场连续镜头：场内不切镜，跨生成段承接尾帧', takeProblems.length === 0, takeProblems.length ? `[continuous-take] ${takeProblems.join('；')}` : '');
   add('dialogue-fit', '认领节拍的台词装得进分镜秒数', bad.fit.length === 0, script ? bad.fit.join('；') : SKIP_SCRIPT);
-  add('ep-duration', `每集总时长在剧本目标 ±${Math.round(params.tolerance * 100)}% 内`, bad.duration.length === 0, script ? bad.duration.join('；') : SKIP_SCRIPT);
+  add('ep-duration', `每集总时长在剧本目标（没定目标时为剧本预估）±${Math.round(params.tolerance * 100)}% 内`, bad.duration.length === 0, script ? bad.duration.join('；') : SKIP_SCRIPT);
   add('crowd', `单个分镜同框 ≤ ${params.maxOnScreen} 人，超了必须带拆解说明`, bad.crowd.length === 0, bad.crowd.join('；'));
   add('segment-id', '段号 E01-01 格式、按顺序连号', bad.id.length === 0, bad.id.join('；'));
   add('size-phrase', '景别短语写进分镜图提示词', bad.size.length === 0, bad.size.join('；'));
@@ -1974,7 +1983,7 @@ const I18N = {
     kpi: {
       segments: '生成段', segmentsSub: (cap) => `一段一次调用，上限 ${cap} 秒`,
       cuts: '分镜', cutsSub: (avg) => `平均 ${avg} 秒一切`,
-      time: '预估总时长', timeSub: (t) => `目标 ${t}`,
+      time: '预估总时长', timeSub: (t) => `目标 ${t}`, timeSubScript: (t) => `剧本预估 ${t}`,
       batches: '生成批次', batchesSub: '同场景同光照共用环境参考图',
       lines: '台词段', linesSub: '其余是纯画面段',
     },
@@ -1987,7 +1996,7 @@ const I18N = {
     segmentsNote: '一段 = 一次生成：主分镜图钉 0.00 秒，子分镜图钉各自切点',
     batchesNote: '自动汇总 · 同批段共用同一张环境参考图',
     dialogueNote: '自动汇总 · TTS 音频对到哪一段的第几切',
-    epHead: (nSeg, nCut, total, target) => `${nSeg} 段 ${nCut} 切 · 共 ${total} 秒 / 目标 ${target} 秒`,
+    epHead: (nSeg, nCut, total, target, byScript) => `${nSeg} 段 ${nCut} 切 · 共 ${total} 秒 / ${byScript ? '剧本预估' : '目标'} ${target} 秒`,
     segHead: (total, n) => `${total} 秒 · ${n} 个分镜`,
     secBadge: (secs, n) => `${secs}s · ${n} 切`,
     rhythmVal: (nSeg, nCut, secs) => `${nSeg} 段 ${nCut} 切 · ${secs}s`,
@@ -2035,7 +2044,7 @@ const I18N = {
     kpi: {
       segments: 'Segments', segmentsSub: (cap) => `one generation call each, capped at ${cap}s`,
       cuts: 'Cuts', cutsSub: (avg) => `${avg}s per cut on average`,
-      time: 'Estimated total', timeSub: (t) => `target ${t}`,
+      time: 'Estimated total', timeSub: (t) => `target ${t}`, timeSubScript: (t) => `script estimate ${t}`,
       batches: 'Generation batches', batchesSub: 'same scene + lighting share one environment reference',
       lines: 'Dialogue segments', linesSub: 'the rest are picture-only',
     },
@@ -2048,7 +2057,7 @@ const I18N = {
     segmentsNote: 'one segment = one generation: the master frame pins 0.00s, sub-frames pin their own cut marks',
     batchesNote: 'auto-computed · segments in a batch share one environment reference image',
     dialogueNote: 'auto-computed · which segment and cut each TTS clip lands on',
-    epHead: (nSeg, nCut, total, target) => `${nSeg} segments ${nCut} cuts · ${total}s total / ${target}s target`,
+    epHead: (nSeg, nCut, total, target, byScript) => `${nSeg} segments ${nCut} cuts · ${total}s total / ${target}s ${byScript ? 'script estimate' : 'target'}`,
     segHead: (total, n) => `${total}s · ${n} cuts`,
     secBadge: (secs, n) => `${secs}s · ${n} cuts`,
     rhythmVal: (nSeg, nCut, secs) => `${nSeg} seg ${nCut} cuts · ${secs}s`,
@@ -2142,7 +2151,7 @@ export function renderMarkdown(board, ctx = {}) {
   for (const [i, ep] of eps.entries()) {
     const st = stats.episodes[i];
     const sEp = expanded.get(ep.ep);
-    out.push(`## E${String(ep.ep).padStart(2, '0')}`, '', `> ${t.epHead(st.segments, st.cuts, st.totalSeconds, st.target)}`, '');
+    out.push(`## E${String(ep.ep).padStart(2, '0')}`, '', `> ${t.epHead(st.segments, st.cuts, st.totalSeconds, st.target, st.scriptLength)}`, '');
     for (const seg of ep.segments) {
       const scene = sEp?.scenes?.[seg.sceneIndex - 1];
       out.push(`### ${seg.id} · ${scene ? t.withLighting(n.scene(scene.sceneId), scene.lighting) : '?'} · ${t.segHead(segSeconds(seg), seg.cuts.length)}`, '');
@@ -2317,7 +2326,7 @@ ${cutRows}
       return `<section class="ep" id="ep-${ep.ep}">
   <header class="ep-h">
     <span class="ep-n">E${String(ep.ep).padStart(2, '0')}</span>
-    <span class="ep-est">${esc(t.epHead(st.segments, st.cuts, st.totalSeconds, st.target))}</span>
+    <span class="ep-est">${esc(t.epHead(st.segments, st.cuts, st.totalSeconds, st.target, st.scriptLength))}</span>
   </header>
   <div class="shots clip">
     <div class="seggrid">
@@ -2571,7 +2580,7 @@ td.serif{font-family:var(--serif)}
 <div class="kpis">
   <div class="kpi accent"><div class="l">${esc(t.kpi.segments)}</div><div class="v">${stats.totals.segments} <small>${esc(t.unitSeg)}</small></div><div class="d">${esc(t.kpi.segmentsSub(params.maxSegmentSeconds))}</div></div>
   <div class="kpi"><div class="l">${esc(t.kpi.cuts)}</div><div class="v">${stats.totals.cuts} <small>${esc(t.unitCut)}</small></div><div class="d">${esc(t.kpi.cutsSub(stats.totals.avgCutSeconds))}</div></div>
-  <div class="kpi"><div class="l">${esc(t.kpi.time)}</div><div class="v">${esc(fmtMin(stats.totals.seconds))}</div><div class="d">${esc(t.kpi.timeSub(fmtMin(stats.totals.targetSeconds)))}</div></div>
+  <div class="kpi"><div class="l">${esc(t.kpi.time)}</div><div class="v">${esc(fmtMin(stats.totals.seconds))}</div><div class="d">${esc((stats.totals.scriptLength ? t.kpi.timeSubScript : t.kpi.timeSub)(fmtMin(stats.totals.targetSeconds)))}</div></div>
   <div class="kpi"><div class="l">${esc(t.kpi.batches)}</div><div class="v">${stats.batches.length}</div><div class="d">${esc(t.kpi.batchesSub)}</div></div>
   <div class="kpi"><div class="l">${esc(t.kpi.lines)}</div><div class="v">${stats.totals.withLines} <small>${esc(t.unitSeg)}</small></div><div class="d">${esc(t.kpi.linesSub)}</div></div>
 </div>
@@ -2825,7 +2834,7 @@ function main(argv) {
     }
     for (const g of gateReport(board, ctx)) if (g.advisory) console.log(`⚠️ ${g.label}：${g.detail}`);
     const st = computeStats(board, ctx.script);
-    console.log(`✓ ${st.episodes.length} 集 / ${st.totals.segments} 段 / ${st.totals.cuts} 个分镜全部通过校验（共 ${st.totals.seconds}s / 目标 ${st.totals.targetSeconds}s / ${st.batches.length} 个生成批次）`);
+    console.log(`✓ ${st.episodes.length} 集 / ${st.totals.segments} 段 / ${st.totals.cuts} 个分镜全部通过校验（共 ${st.totals.seconds}s / ${st.totals.scriptLength ? '剧本预估' : '目标'} ${st.totals.targetSeconds}s / ${st.batches.length} 个生成批次）`);
     return;
   }
 

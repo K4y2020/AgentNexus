@@ -29,6 +29,13 @@ def test_init_is_incomplete_native_outline_and_never_overwrites(tmp_path):
     assert (tmp_path / "outline.json").read_bytes() == before
 
 
+def test_init_without_a_length_leaves_it_to_the_script(tmp_path):
+    production.init_outline(tmp_path, "A film", 1, None, "rescue", "抽核")
+    assert "minutesPerEpisode" not in production.read(tmp_path / "outline.json")["params"]
+    with pytest.raises(ValueError):
+        production.init_outline(tmp_path / "zero", "A film", 1, 0, "rescue", "抽核")
+
+
 @pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")
 @pytest.mark.parametrize("stage", ["cast", "art", "script", "storyboard"])
 def test_seed_reuses_native_cli(tmp_path, stage):

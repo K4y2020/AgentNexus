@@ -1169,4 +1169,18 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
   ok(!cross.ok && cross.detail.includes('换了场次（1 → 2）'), '跨场承接被拦');
 }
 
+{
+  // 用户没定时长：每集总时长按剧本预估（编剧定长）对账
+  const untimed = clone(SCRIPT);
+  for (const ep of untimed.episodes) delete ep.targetSeconds;
+  const ctx = { ...CTX, script: untimed };
+  ok(gate(FIXTURE, 'ep-duration', ctx).ok, '没定目标时样例按剧本预估通过');
+  const st = computeStats(FIXTURE, untimed);
+  ok(st.totals.scriptLength && st.totals.targetSeconds > 100 && st.totals.targetSeconds < 110, '统计换成剧本预估');
+  const doc = clone(FIXTURE);
+  for (const s of doc.episodes[0].segments) for (const c of s.cuts) c.seconds = Math.max(2, c.seconds - 2);
+  ok(gate(doc, 'ep-duration', ctx).detail.includes('剧本预估'), '没定目标时写欠按剧本预估拦');
+  ok(renderMarkdown(FIXTURE, ctx).includes('剧本预估'), 'MD 每集写剧本预估');
+}
+
 console.log(`✓ ${passed} 项自测全部通过`);

@@ -367,7 +367,9 @@ export function validateOutline(outline, stage = 'full') {
     p('缺少 params（总集数/单集时长/题材/改编幅度）');
   } else {
     if (!Number.isInteger(params.episodes) || params.episodes < 1) p('params.episodes 必须是正整数');
-    if (!(params.minutesPerEpisode > 0)) p('params.minutesPerEpisode 必须大于 0');
+    if (params.minutesPerEpisode != null && !(params.minutesPerEpisode > 0)) {
+      p('params.minutesPerEpisode 给了就必须大于 0；用户没定单集时长就省略，由编剧按戏定长');
+    }
     if (!thText(params.genre)) p('params.genre 缺失——题材决定爽点类型，不能缺');
     if (!ADAPT_MODES.includes(params.adaptMode)) {
       p(`params.adaptMode 必须是 ${ADAPT_MODES.join('/')}，实际是 ${JSON.stringify(params.adaptMode)}`);
@@ -613,7 +615,7 @@ const I18N = {
     kicker: '短剧改编大纲',
     docTitle: (s) => `${s} · 短剧改编大纲`,
     paramsLine: (p) =>
-      `${p.episodes} 集 × ${p.minutesPerEpisode} 分钟 · ${p.genre} · ${p.adaptMode}改编`,
+      `${p.episodes} 集 × ${p.minutesPerEpisode > 0 ? `${p.minutesPerEpisode} 分钟` : '编剧定长'} · ${p.genre} · ${p.adaptMode}改编`,
     exportJson: '导出 JSON',
     gates: '质量门',
     gatesPass: '全部通过',
@@ -641,7 +643,7 @@ const I18N = {
       adaptation: '为什么这么改 · 附原文依据',
     },
     kpi: {
-      episodes: '总集数', perEp: (m) => `× ${m} 分钟`, runtime: (m) => `正片约 ${m} 分钟`,
+      episodes: '总集数', perEp: (m) => (m > 0 ? `× ${m} 分钟` : '× 编剧定长'), runtime: (m) => (m > 0 ? `正片约 ${m} 分钟` : '时长由剧本定'),
       beats: '爽点', beatsSub: (major, gap) => `${major} 大爆点${gap ? ` · 最大间隔 ${gap} 集` : ''}`,
       cast: '角色', castSub: (l, s, f) => `主角 ${l} · 配角 ${s} · 功能 ${f}`,
       scenes: '主场景', scenesOnce: (n) => (n ? `一次性场景 ${n}，需复用方案` : '无一次性场景'),
@@ -710,7 +712,7 @@ const I18N = {
     kicker: 'Short-drama adaptation outline',
     docTitle: (s) => `${s} · Short-Drama Adaptation Outline`,
     paramsLine: (p) =>
-      `${p.episodes} eps × ${p.minutesPerEpisode} min · ${p.genre} · ${p.adaptMode} adaptation`,
+      `${p.episodes} eps × ${p.minutesPerEpisode > 0 ? `${p.minutesPerEpisode} min` : 'length set by the script'} · ${p.genre} · ${p.adaptMode} adaptation`,
     exportJson: 'Export JSON',
     gates: 'Quality gates',
     gatesPass: 'All passed',
@@ -738,7 +740,7 @@ const I18N = {
       adaptation: 'Why these changes · with source evidence',
     },
     kpi: {
-      episodes: 'Episodes', perEp: (m) => `× ${m} min`, runtime: (m) => `about ${m} min of footage`,
+      episodes: 'Episodes', perEp: (m) => (m > 0 ? `× ${m} min` : '× length set by the script'), runtime: (m) => (m > 0 ? `about ${m} min of footage` : 'runtime set by the script'),
       beats: 'Beats', beatsSub: (major, gap) => `${major} major${gap ? ` · max gap ${gap} eps` : ''}`,
       cast: 'Cast', castSub: (l, s, f) => `leads ${l} · support ${s} · functional ${f}`,
       scenes: 'Primary scenes', scenesOnce: (n) => (n ? `${n} one-off, reuse plan required` : 'No one-off scenes'),
@@ -1050,7 +1052,7 @@ export function renderHtml(outline, lang) {
   const majors = beats.filter((b) => (b.weight ?? 'minor') === 'major').length;
 
   const kpis = `<div class="kpis">
-  <div class="kpi accent"><div class="l">${esc(t.kpi.episodes)}</div><div class="v">${total} <small>${esc(t.kpi.perEp(params.minutesPerEpisode))}</small></div><div class="d">${esc(t.kpi.runtime(total * params.minutesPerEpisode))}</div></div>
+  <div class="kpi accent"><div class="l">${esc(t.kpi.episodes)}</div><div class="v">${total} <small>${esc(t.kpi.perEp(params.minutesPerEpisode))}</small></div><div class="d">${esc(t.kpi.runtime(params.minutesPerEpisode > 0 ? total * params.minutesPerEpisode : 0))}</div></div>
   <div class="kpi"><div class="l">${esc(t.kpi.beats)}</div><div class="v">${beats.length}</div><div class="d">${esc(t.kpi.beatsSub(majors, maxGap))}</div></div>
   <div class="kpi"><div class="l">${esc(t.kpi.cast)}</div><div class="v">${characters.length}</div><div class="d">${esc(t.kpi.castSub(tierN.lead ?? 0, tierN.support ?? 0, tierN.functional ?? 0))}</div></div>
   <div class="kpi"><div class="l">${esc(t.kpi.scenes)}</div><div class="v">${primaryScenes.length}${assets.scenes.length > primaryScenes.length ? ` <small>+${assets.scenes.length - primaryScenes.length}</small>` : ''}</div><div class="d">${esc(t.kpi.scenesOnce(onceScenes.length))}</div></div>

@@ -107,8 +107,10 @@ their CLI. Keep native schemas; fill seeds rather than replacing them with
 `meta/shots` or `meta/scenes` formats.
 
 ```powershell
-python <film-analysis>/pipeline/production.py init <output> --source <title> --episodes 1 --seconds 30 --genre <genre> --adapt-mode <mode>
+python <film-analysis>/pipeline/production.py init <output> --source <title> --episodes 1 --genre <genre> --adapt-mode <mode>
 # Native adapt-mode is one of 忠实 / 抽核 / 借壳; use the user's choice.
+# Add --seconds <n> only when the user asked for an episode length; without it the
+# script sets the length. Never use the source runtime: it is edited and may be sped up.
 # Fill outline.json, then seed its consumers:
 python <film-analysis>/pipeline/production.py seed <output> --stage cast
 python <film-analysis>/pipeline/production.py seed <output> --stage art

@@ -17,7 +17,7 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `ep` | int | 集号，正整数，同一文件内不许重复 |
-| `targetSeconds` | number | 目标秒数。seed 会从大纲的 `minutesPerEpisode × 60` 算好 |
+| `targetSeconds` | number | 目标秒数，可省略。大纲有 `minutesPerEpisode` 时 seed 按 ×60 算好且必须保留；大纲没定时长就没有这个字段，由编剧按戏定长 |
 | `hook` | string | 开场钩子的说明——这一集头几拍靠什么把人摁住。**必填** |
 | `cliff` | string | 结尾悬念的说明——最后一拍留什么让人点下一集。**必填** |
 | `beatsClaimed` | string[] | 认领的大纲爽点 `type`（如 `"身份揭破"`）。没有就空数组，**字段本身必须在** |
@@ -70,7 +70,7 @@
 
 - 台词秒数 = 非空白字符数 ÷ `charsPerSecond`（标点算时间——停顿也是时间）
 - 动作秒数 = 动作节拍数 × `actionSeconds`
-- 每集预估 = 全部场次之和，必须落在 `targetSeconds × (1 ± tolerance)` 内
+- 每集预估 = 全部场次之和。有 `targetSeconds` 时必须落在 `targetSeconds × (1 ± tolerance)` 内；没有时这个预估就是本集时长，分镜按它对账
 
 三分钟（180 秒）一集的参考体量：约 45–55 个节拍，其中台词 30 句上下。两分钟（120 秒）约 35 拍、台词 20 句上下。
 

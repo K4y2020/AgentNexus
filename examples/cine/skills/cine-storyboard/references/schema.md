@@ -110,4 +110,4 @@ non_diegetic_music: N/A
 
 ## 时长约束链
 
-台词秒数（按剧本语速折算）≤ 分镜 `seconds` ≤ maxCutSeconds；段 Σ分镜 ≤ maxSegmentSeconds（默认 15 秒）；集 Σ段 落在剧本 `targetSeconds` ± tolerance（默认 15%）。由 validate 逐级对账。
+台词秒数（按剧本语速折算）≤ 分镜 `seconds` ≤ maxCutSeconds；段 Σ分镜 ≤ maxSegmentSeconds（默认 15 秒）；集 Σ段 落在剧本 `targetSeconds`（剧本没有目标时为剧本预估时长）± tolerance（默认 15%）。由 validate 逐级对账。

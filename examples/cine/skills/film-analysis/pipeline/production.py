@@ -650,11 +650,11 @@ def init_outline(directory, source, episodes, seconds, genre, adapt_mode):
         not source.strip()
         or not genre.strip()
         or episodes < 1
-        or not math.isfinite(seconds)
-        or seconds <= 0
+        or (seconds is not None and (not math.isfinite(seconds) or seconds <= 0))
     ):
         raise ValueError(
-            "source, genre, positive episodes and finite positive seconds are required"
+            "source, genre and positive episodes are required; seconds, when given, "
+            "must be finite and positive"
         )
     directory.mkdir(parents=True, exist_ok=True)
     path = stage_path(directory, "outline", must_exist=False)
@@ -669,7 +669,9 @@ def init_outline(directory, source, episodes, seconds, genre, adapt_mode):
         "lang": "zh",
         "params": {
             "episodes": episodes,
-            "minutesPerEpisode": seconds / 60,
+            # Only a length the user asked for. Without it the script sets the length;
+            # the source runtime is edited and may be sped up, so it is never the target.
+            **({"minutesPerEpisode": seconds / 60} if seconds is not None else {}),
             "genre": genre,
             "adaptMode": adapt_mode,
             "preferences": [],
@@ -1337,7 +1339,12 @@ def main(argv=None):
     init.add_argument("directory", type=Path)
     init.add_argument("--source", required=True)
     init.add_argument("--episodes", type=int, required=True)
-    init.add_argument("--seconds", type=float, required=True)
+    init.add_argument(
+        "--seconds",
+        type=float,
+        default=None,
+        help="Episode length the user asked for; omit it to let the script set the length.",
+    )
     init.add_argument("--genre", required=True)
     init.add_argument("--adapt-mode", choices=["忠实", "抽核", "借壳"], required=True)
     attribute = sub.add_parser(
