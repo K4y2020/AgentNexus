@@ -17,6 +17,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Generator, Sequence
@@ -65,6 +66,12 @@ logger = logging.getLogger(__name__)
 # risk wedging long e2e turns under the shard timeout, and the
 # transient is rare.
 _EMPTY_TURN_MAX_ATTEMPTS = 2
+
+# The SDK raises ModelBehaviorError when the model calls a tool that does
+# not exist (e.g. an invented ``sys_os_text``), which would fail the whole
+# turn. Instead the step is re-run with a note naming the real tools.
+_UNKNOWN_TOOL_MAX_RETRIES = 2
+_UNKNOWN_TOOL_RE = re.compile(r"^Tool (\S+) not found in agent ")
 
 # SDK ``RunItem.type`` values that are bookkeeping, not user-visible
 # output. A turn whose only new items are these (and which produced no
@@ -1014,6 +1021,49 @@ def _is_empty_turn(
     return not final_text and not saw_tool_activity and _count_output_items(new_items) == 0
 
 
+def _unknown_tool_name(exc: BaseException) -> str | None:
+    """The invented tool name when ``exc`` is the SDK's tool-not-found error.
+
+    :param exc: An exception raised by a streamed SDK run.
+    :returns: The tool name the model called, e.g. ``"sys_os_text"``, else ``None``.
+    """
+    if type(exc).__name__ != "ModelBehaviorError":
+        return None
+    match = _UNKNOWN_TOOL_RE.match(str(exc))
+    return match.group(1) if match else None
+
+
+def _unknown_tool_retry_input(
+    input_value: object, name: str, tools: Sequence[ToolSpec]
+) -> list[_JsonObject]:
+    """Input for re-running a step whose model output called a missing tool.
+
+    The SDK session has been rewound to before the step, so the step's own
+    input goes first. A resumed step (``_RunState``) has its history in the
+    session already, so only the note is needed.
+
+    :param input_value: The failed step's input: user text, input items or a run state.
+    :param name: The tool name the model invented.
+    :param tools: The tools this turn actually offers.
+    :returns: Input items for the retry, ending with the note to the model.
+    """
+    names = [t.get("name") for t in tools if isinstance(t.get("name"), str)]
+    note: _JsonObject = {
+        "role": "user",
+        "content": (
+            f"[harness] The tool `{name}` does not exist, so that call was not run. "
+            f"Use only the tools you have: {', '.join(cast(list[str], names))}. "
+            "Continue the task."
+        ),
+    }
+    if isinstance(input_value, str):
+        user: _JsonObject = {"role": "user", "content": input_value}
+        return [user, note] if input_value else [note]
+    if isinstance(input_value, list):
+        return [*cast(list[_JsonObject], input_value), note]
+    return [note]
+
+
 class OpenAIAgentsSDKExecutor(Executor):
     """Execute turns using the OpenAI Agents SDK."""
 
@@ -1604,7 +1654,15 @@ class OpenAIAgentsSDKExecutor(Executor):
         response_text = ""
         saw_tool_activity = False
         final_text = ""
-        for attempt in range(_EMPTY_TURN_MAX_ATTEMPTS):
+        attempt = 0
+        unknown_tool: str | None = None
+        unknown_tool_retries = 0
+        while attempt < _EMPTY_TURN_MAX_ATTEMPTS:
+            if unknown_tool is not None:
+                # The failed step saved nothing usable; rerun it with a note.
+                await self._rewind_sdk_session(state, current_item_count)
+                input_value = _unknown_tool_retry_input(input_value, unknown_tool, tools)
+                unknown_tool = None
             response_text = ""
             pending_tools: dict[str, tuple[str, float]] = {}
             saw_tool_activity = False
@@ -1747,6 +1805,17 @@ class OpenAIAgentsSDKExecutor(Executor):
                     # maps it to ``context_length_exceeded`` and the
                     # runner surfaces the overflow to the user.
                     raise
+                unknown_tool = _unknown_tool_name(exc)
+                if unknown_tool is not None and unknown_tool_retries < _UNKNOWN_TOOL_MAX_RETRIES:
+                    # Retried after the ``finally`` below has stopped the stream pump.
+                    unknown_tool_retries += 1
+                    logger.warning(
+                        "OpenAIAgentsSDKExecutor: model called missing tool %r, retrying (%d/%d)",
+                        unknown_tool,
+                        unknown_tool_retries,
+                        _UNKNOWN_TOOL_MAX_RETRIES,
+                    )
+                    continue
                 from .databricks_executor import DatabricksAuthError
 
                 if isinstance(exc, DatabricksAuthError) or (
@@ -1808,6 +1877,7 @@ class OpenAIAgentsSDKExecutor(Executor):
                 # the retry re-runs from an identical state — the empty
                 # attempt may have appended a stray empty assistant item.
                 await self._rewind_sdk_session(state, current_item_count)
+            attempt += 1
 
         # ``final_text`` / ``result`` are from the surfaced (last) attempt.
         # If still empty AND the gateway reported zero output tokens, the

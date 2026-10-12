@@ -3218,3 +3218,104 @@ def test_no_compaction_item_no_compaction_event() -> None:
         assert len(compaction_events) == 0
 
     _run(_t())
+
+
+class ModelBehaviorError(Exception):
+    """Same class name as the SDK's, which the executor matches on."""
+
+
+def test_a_call_to_a_missing_tool_is_rerun_with_a_note() -> None:
+    """
+    When the model calls a tool that does not exist, the SDK raises
+    ModelBehaviorError. The executor rewinds the session and reruns the
+    step with a note naming the real tools instead of failing the turn.
+
+    What breaks if this fails: one invented tool name (e.g. ``sys_os_text``)
+    ends an unattended session with "Tool ... not found in agent".
+    """
+
+    async def _t() -> None:
+        _FakeRunner.last_calls = []
+        _FakeRunner.next_result = None
+        appended = {"stray": "partial-step-item"}
+
+        class _FailingResult(_FakeResult):
+            def __init__(self, session):
+                super().__init__(
+                    events=[],
+                    exception=ModelBehaviorError("Tool sys_os_text not found in agent AgentNexus"),
+                )
+                self._session = session
+
+            async def stream_events(self):
+                await self._session.add_items([appended])
+                async for event in super().stream_events():
+                    yield event
+
+        def _runner(agent, input, session, max_turns, run_config):
+            _FakeRunner.last_calls.append({"session": session, "input": input})
+            if len(_FakeRunner.last_calls) == 1:
+                return _FailingResult(session)
+            return _FakeResult(
+                events=[_FakeRawEvent(_FakeRawTextDelta("ok"))],
+                final_output="ok",
+                raw_responses=[_nonempty_raw_response()],
+            )
+
+        fake_sdk = _fake_agents_sdk()
+        fake_sdk.Runner = types.SimpleNamespace(run_streamed=_runner)
+        executor = _make_databricks_executor()
+        tools = [{"name": "sys_os_read", "description": "Read", "parameters": {"type": "object"}}]
+        with patch(
+            "agentnexus.inner.openai_agents_sdk_executor._ensure_agents_sdk",
+            return_value=fake_sdk,
+        ):
+            events = await _collect(
+                executor.run_turn(
+                    [{"role": "user", "content": "hi", "session_id": "s1"}],
+                    tools,
+                    "Be helpful.",
+                )
+            )
+
+        assert not any(isinstance(e, ExecutorError) for e in events)
+        assert [e.response for e in events if isinstance(e, TurnComplete)] == ["ok"]
+        retry_input = _FakeRunner.last_calls[1]["input"]
+        assert retry_input[0]["role"] == "user"
+        assert "`sys_os_text` does not exist" in retry_input[-1]["content"]
+        assert "sys_os_read" in retry_input[-1]["content"]
+        assert appended not in await _FakeRunner.last_calls[1]["session"].get_items()
+
+    _run(_t())
+
+
+def test_a_model_that_keeps_calling_missing_tools_still_fails_loudly() -> None:
+    """After the bounded reruns, the tool-not-found error surfaces as before."""
+
+    async def _t() -> None:
+        _FakeRunner.last_calls = []
+        _FakeRunner.next_result = None
+        _FakeRunner.next_results = [
+            _FakeResult(
+                events=[],
+                exception=ModelBehaviorError("Tool sys_os_text not found in agent AgentNexus"),
+            )
+            for _ in range(5)
+        ]
+        executor = _make_databricks_executor()
+        with patch(
+            "agentnexus.inner.openai_agents_sdk_executor._ensure_agents_sdk",
+            return_value=_fake_agents_sdk(),
+        ):
+            events = await _collect(
+                executor.run_turn(
+                    [{"role": "user", "content": "hi", "session_id": "s1"}], [], "Be helpful."
+                )
+            )
+        _FakeRunner.next_results = []
+
+        errors = [e for e in events if isinstance(e, ExecutorError)]
+        assert len(_FakeRunner.last_calls) == 3
+        assert len(errors) == 1 and "sys_os_text not found" in errors[0].message
+
+    _run(_t())
