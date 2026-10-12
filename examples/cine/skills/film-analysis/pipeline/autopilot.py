@@ -31,6 +31,10 @@ MAX_UNCHANGED = 3
 # Failures of the environment rather than the artifact; retried once, never edited.
 TECHNICAL = {"blocked", "attribution_error", "timeout", "inputs_changed"}
 STATE = Path(".cine-validation") / "autopilot.json"
+# Errors longer than this are shown in part, and the whole list goes to ERROR_LOGS/<stage>.txt
+# so a long storyboard's repair still sees every violation.
+ERROR_EXCERPT = 6000
+ERROR_LOGS = Path(".cine-validation") / "errors"
 QUEUE = "review-queue.json"
 # Copies of the passed stages an open edit must leave alone, and of edits undone.
 FROZEN = Path(".cine-validation") / "frozen"
@@ -167,7 +171,22 @@ def _default_source_text(directory: Path) -> Path | None:
     return None
 
 
-def _errors(row: dict[str, Any]) -> list[str]:
+def _clip(text: str, limit: int) -> str:
+    """Head and tail of a long text: a validator lists violations first, a traceback ends last."""
+    if len(text) <= limit:
+        return text
+    marker = "\n…（中间有省略）…\n"
+    keep = max(limit - len(marker), 0)
+    head = keep * 3 // 4
+    return text[:head] + marker + text[len(text) - (keep - head) :]
+
+
+def _error_log(directory: Path, stage: str) -> Path:
+    return (directory / ERROR_LOGS / f"{stage}.txt").resolve()
+
+
+def _errors(row: dict[str, Any], log: Path | None = None) -> list[str]:
+    """The check's errors; when they are too long to show, all of them are saved to ``log``."""
     errors = list(row.get("errors") or [])
     errors += (row.get("asset_anchors") or {}).get("problems") or []
     # A passing validator's stdout is its receipt and advisories, not an error.
@@ -175,8 +194,27 @@ def _errors(row: dict[str, Any]) -> list[str]:
     for stream in streams:
         text = (row.get(stream) or "").strip()
         if text:
-            errors.append(text[-2000:])
-    return errors
+            errors.append(text)
+    if sum(len(error) for error in errors) <= ERROR_EXCERPT:
+        if log is not None:
+            log.unlink(missing_ok=True)
+        return errors
+    if log is not None:
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text("\n\n".join(errors) + "\n", encoding="utf-8")
+    shown: list[str] = []
+    budget = ERROR_EXCERPT
+    for error in errors:
+        if budget < 200:
+            break
+        shown.append(_clip(error, budget))
+        budget -= len(shown[-1])
+    hidden = len(errors) - len(shown)
+    note = "错误太多，上面只列出一部分" + (f"，另有 {hidden} 条没列出" if hidden else "")
+    if log is not None:
+        note += f"。完整清单在 {log}：修复前先读完整清单，同一类问题一次改完。"
+    shown.append(note)
+    return shown
 
 
 def _repair_target(stage: str, row: dict[str, Any]) -> str:
@@ -564,8 +602,9 @@ def _decide(run: _Run, source_text: Path | None, *, retry: bool) -> dict[str, An
                 run.set_items(stage, source, items)
             run.save()
             continue
+        errors = _errors(row, _error_log(directory, stage))
         if row["status"] in TECHNICAL:
-            return _escalate(run, stage, f"technical_{row['status']}", _errors(row), None)
+            return _escalate(run, stage, f"technical_{row['status']}", errors, None)
 
         target_stage = _repair_target(stage, row)
         target = prod.stage_path(directory, target_stage)
@@ -581,9 +620,9 @@ def _decide(run: _Run, source_text: Path | None, *, retry: bool) -> dict[str, An
                 {"stage": target_stage, "status": row["status"], "version": version[:12]}
             )
         if len(record["failed_versions"]) > MAX_EDITS:
-            return _escalate(run, stage, "repair_exhausted", _errors(row), target)
+            return _escalate(run, stage, "repair_exhausted", errors, target)
         if record["unchanged"] >= MAX_UNCHANGED:
-            return _escalate(run, stage, "not_progressing", _errors(row), target)
+            return _escalate(run, stage, "not_progressing", errors, target)
         frozen = _freeze_others(run, stage, target_stage)
         run.save()
         edit = len(record["failed_versions"])
@@ -595,7 +634,7 @@ def _decide(run: _Run, source_text: Path | None, *, retry: bool) -> dict[str, An
             "skill": STAGES[target_stage].skill,
             "file": str(target),
             "status": row["status"],
-            "errors": _errors(row),
+            "errors": errors,
             "edit": edit,
             "max_edits": MAX_EDITS,
             "frozen": frozen,

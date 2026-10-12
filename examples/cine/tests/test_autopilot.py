@@ -71,6 +71,30 @@ def test_a_failing_stage_gets_a_bounded_edit_budget(monkeypatch, directory):
     assert [i["severity"] for i in queue(directory)] == ["blocking"]
 
 
+def test_a_long_error_list_is_shown_from_its_head_and_saved_whole(monkeypatch, directory):
+    checks = Checks(monkeypatch)
+    lines = [
+        f"  E01-{n:02d}.detailed_description.<Subject 4>: 首次使用不在正文里" + "。" * 200
+        for n in range(1, 41)
+    ]
+    stdout = "✗ 40 处违规：\n\n" + "\n".join(lines)
+    checks.results["storyboard"] = {"status": "failed", "exit_code": 1, "stdout": stdout}
+
+    step = autopilot.next_step(directory)
+
+    log = directory / ".cine-validation" / "errors" / "storyboard.txt"
+    assert step["action"] == "edit" and step["errors"][0].startswith("✗ 40 处违规")
+    assert str(log.resolve()) in step["errors"][-1]
+    assert sum(len(e) for e in step["errors"][:-1]) <= autopilot.ERROR_EXCERPT
+    saved = log.read_text(encoding="utf-8")
+    assert all(line.strip() in saved for line in lines)
+
+    checks.results["storyboard"] = {"status": "failed", "exit_code": 1, "stdout": "✗ 1 处违规"}
+    edit(directory, "storyboard", 1)
+    assert autopilot.next_step(directory)["errors"] == ["✗ 1 处违规"]
+    assert not log.exists()
+
+
 def test_an_unedited_file_stops_after_repeated_calls(monkeypatch, directory):
     checks = Checks(monkeypatch)
     checks.results["cast"] = {"status": "failed"}

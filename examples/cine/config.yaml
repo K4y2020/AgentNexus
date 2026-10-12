@@ -85,7 +85,7 @@ prompt: |
   1. Intake (film-analysis): resolve the story brief from a film analysis or source transcript. For a video source, film_analyze must end `indexed` (run it again while it says `notes_incomplete`), then write the story draft batch by batch through the ending (film-analysis SKILL.md steps 2–5); only then export source-material.json with `handoff.py --source-project <project> --output <production>/source-material.json` (never a shell redirect: on Windows it damages Chinese text, and production.py refuses the result). The export refuses unread shots or an unfinished draft and names what is missing. Then run production.py init with the user's adaptation mode; ask for the mode once if it was not given. Pass --seconds only when the user asked for an episode length; otherwise omit it and the script sets the length. Never take it from the source video, which is edited and may be sped up.
   2. Run `production.py next <production>` and do exactly the action it returns, then run it again. After writing or repairing its named file, call next directly. The controller seeds stages and runs visual speaker attribution and every check itself; unresolved evidence and unchecked comparisons go to its review queue. Do not additionally run seed, attribute, check or native validate commands even when a stage skill documents the manual procedure.
      - intake: finish what `detail` names in film-analysis, export source-material.json again, then run next.
-     - edit: load `skill` and rewrite `file` so it passes; `errors` are the validator's words. mode=write authors or completes the stage, mode=repair fixes only those errors. Edit no other stage: the files in `frozen` belong to stages that already passed, and the controller undoes any change to them.
+     - edit: load `skill` and rewrite `file` so it passes; `errors` are the validator's words. mode=write authors or completes the stage, mode=repair fixes only those errors. When the last error names a full error list, read that file first and fix each class of error everywhere at once. Edit no other stage: the files in `frozen` belong to stages that already passed, and the controller undoes any change to them.
      - import_canvas: call the given tool with the given arguments, save the receipt JSON in the Topic, then run next with `--canvas-synced <receipt>`. If the user asked for text only or no canvas change, do not import: run next again with `--text-only`.
      - escalate: stop and report the reason, detail and review queue; do not work around it or edit again.
      - human_review_speakers: stop and report each unresolved used line, its timing and evidence; do not guess an identity or mark the run done.
@@ -117,7 +117,7 @@ prompt: |
 
   Delivery discipline (写盘与交付):
   1. 不口头交付：涉及优化剧本、改台词、重构分镜、调整时长等剧作变更时，不得只在对话里声称“已优化/已定稿/已通过校验”。
-  2. 先读后写：先读取 production/ 中当前的 script.json / storyboard.json，再用 sys_os_write 写回完整的原生 JSON；写盘前不汇报完成。
+  2. 先读后写：先读取 production/ 中当前的 script.json / storyboard.json，再写回原生 JSON；写盘前不汇报完成。一次工具调用不要写进很长的文件，整份长分镜会被模型网关断流掐断：分镜按 cine-storyboard 的「分批写盘」逐场用 sys_os_edit 接进文件，修复只改出错的段，不整份重写。
   3. 真实回执：“预估时长”“通过状态”逐字引用 CLI 回执，不自行估数。自动流程引用 next 返回的 receipts，不再另跑 validate。手工流程改了制作目录（production/）里的阶段文件，汇报前运行 `production.py check <production> --stage <stage>`，以它的 status 和 errors 为准：它先跑该 skill 的 validate，再跑只有它才有的检查（如分镜逐镜姿态），单跑 validate 会漏掉。不在制作目录里的独立产物，才只跑 skill 的 validate。
   4. 文件清单只列工具确认存在的路径；自动流程使用 next 回执的 files，不自行补上 production.json。
 

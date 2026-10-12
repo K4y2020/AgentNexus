@@ -43,6 +43,8 @@ metadata:
 
 自动改编由 `production.py next` 调度时，按它给出的错误编写或修复指定文件，然后直接再调用 `next`。下面的 seed、validate、checkup 命令用于独立手工流程；自动流程的播种和检查由控制器执行。
 
+**分批写盘**：分镜不要在一次工具调用里写完整份。几十段的整份 JSON 放进一次调用，模型输出时间太长，会被网关断流掐断。底稿每集都带空的 `"segments": []`。第一批用 `sys_os_edit` 把本集这一处换成含首批段的数组，oldText 带上本集的 `"ep"` 行，保证唯一；之后每批把新段接在本集最后一段后面，oldText 取最后一段的结尾和紧跟的 `"seedScenes"`。每批写一场、最多 5 段，一场更长就再拆；每次编辑前先读文件，确认锚点原文。newText 是 JSON 片段，字符串里的换行写成 `\n`，不能直接换行。所有段写完再调用 `next`。修复时只用 `sys_os_edit` 改出错的段，不整份重写；错误末尾给出完整清单路径时，先读完整清单，同一类问题一次改完。
+
 ### V3 分镜交付入口
 
 生成图片取回：任务 succeeded 后调用 `seedance_edit_canvas(action="export_image", job_id="<真实任务ID>", output_path="outputs/h3-package/E01-01/f1.png")`，用返回的精确 path 调用 `sys_os_view_image`。`local://hash` 是 V3 存储标识，不是文件路径；禁止递归搜盘、猜端口或用临时脚本下载。导出只取回已有图片，不触发生成；已有不同内容的文件不会被覆盖。
