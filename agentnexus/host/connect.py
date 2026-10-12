@@ -573,6 +573,10 @@ _RUNNER_ENV_ALLOWLIST: frozenset[str] = frozenset(
         # server lists them in env_passthrough, so a value set here reaches it.
         "CINE_GPU",
         "CINE_GPU_ENV",
+        # Non-secret review routing must survive host and runner restarts.
+        "AGENTNEXUS_MEDIA_REVIEW_MODEL",
+        "AGENTNEXUS_MEDIA_OBSERVER_MODEL",
+        "AGENTNEXUS_MEDIA_REVIEW_MODE",
         "HF_HOME",
         "TORCH_HOME",
         # Telemetry master opt-in. MUST propagate, or the daemon-spawned runner

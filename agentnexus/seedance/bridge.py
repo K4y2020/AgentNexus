@@ -507,6 +507,13 @@ async def read_seedance_generation(server_client, conversation_id, *, action, jo
             }
             if job.get("status") == "succeeded" and job.get("kind") == "image"
             else None,
+            "video_export": {
+                "tool": "seedance_edit_canvas",
+                "action": "export_video",
+                "job_id": job_id,
+            }
+            if job.get("status") == "succeeded" and job.get("kind") == "video"
+            else None,
             "poll_after_seconds": 0 if terminal else 20,
             "next_action": "review_once_then_report"
             if job.get("status") == "succeeded"
@@ -542,6 +549,9 @@ async def execute_seedance_canvas_edit(
     edge_id: str | None = None,
     generation_kind: str | None = None,
     generation_allowed: bool = False,
+    generation_request_id: str | None = None,
+    expected_continuation_job_id: str | None = None,
+    sync_prompt: bool = False,
     production_dir: str | None = None,
     source_text: str | None = None,
     production_stage: str | None = None,
@@ -567,8 +577,9 @@ async def execute_seedance_canvas_edit(
             else "video"
         )
     client = seedance_client or SeedanceClient()
+    generation_request = None
     try:
-        if action == "export_image":
+        if action in ("export_image", "export_video"):
             from agentnexus.seedance.image_export import export_job_image
 
             return await export_job_image(
@@ -578,6 +589,7 @@ async def execute_seedance_canvas_edit(
                 job_id=job_id,
                 output_path=output_path,
                 output_index=output_index,
+                expected_kind="video" if action == "export_video" else None,
             )
         if action == "import_storyboard":
             from agentnexus.seedance.storyboard_import import import_storyboard
@@ -637,8 +649,9 @@ async def execute_seedance_canvas_edit(
         proof: dict[str, Any] = {}
         generation_command: dict[str, Any] = {}
         prompt_optimized = False
+        prompt_synced = False
         if action in ("validate_generation", "submit_generation"):
-            from agentnexus.seedance.production_gate import validate_submission
+            from agentnexus.seedance.production_gate import assert_current, validate_submission
 
             if action == "submit_generation" and generation_allowed is not True:
                 return {
@@ -660,12 +673,55 @@ async def execute_seedance_canvas_edit(
                 prompt=prompt,
                 project_id=resolved_project_id,
             )
-            gen_input = {"prompt": proof["prompt"]}
+            if expected_continuation_job_id is not None:
+                if generation_kind != "video":
+                    raise ProductionRejected("CINE_CONTINUATION_SOURCE_MISMATCH")
+                from agentnexus.seedance.generation_requests import validate_continuation
+
+                await validate_continuation(
+                    client, resolved_project_id, node_id, expected_continuation_job_id
+                )
+            if action == "submit_generation":
+                from agentnexus.seedance.generation_requests import open_generation_request
+
+                generation_request = await open_generation_request(
+                    server_client,
+                    conversation_id,
+                    client,
+                    request_id=generation_request_id,
+                    project_id=resolved_project_id,
+                    production_dir=production_dir,
+                    proof=proof,
+                    intent={
+                        "node_id": node_id,
+                        "generation_kind": generation_kind,
+                        "prompt": proof["prompt"],
+                        "model": model,
+                        "aspect_ratio": aspect_ratio,
+                        "duration_seconds": duration_seconds,
+                        "production_stage": production_stage,
+                        "production_pointer": production_pointer,
+                        "expected_continuation_job_id": expected_continuation_job_id,
+                    },
+                )
+                if generation_request is not None:
+                    assert_current(proof)
+                    saved = generation_request.saved_result()
+                    if saved is not None:
+                        return saved
+                    if generation_request.record.get("command"):
+                        assert_current(proof)
+                        return await generation_request.submit(client, {}, {})
+            gen_input: dict[str, Any] = {"prompt": proof["prompt"]}
             if model:
                 gen_input["model"] = model
             if aspect_ratio:
                 gen_input["aspectRatio"] = aspect_ratio
+            if duration_seconds is not None:
+                gen_input["durationSec"] = duration_seconds
             generation_command = {"kind": generation_kind, "input": gen_input}
+            if expected_continuation_job_id is not None:
+                generation_command["expectedContinuationJobId"] = expected_continuation_job_id
             state_requirements = proof.get("state_requirements") or []
             if state_requirements:
                 if not node_id:
@@ -700,7 +756,16 @@ async def execute_seedance_canvas_edit(
                         )
                     if node_data.get("prompt") == proof["prompt"]:
                         break
-                    if action == "validate_generation":
+                    if (
+                        generation_request is not None
+                        and generation_request.record.get("optimized_prompt")
+                        == node_data.get("prompt")
+                        and node_data.get("sourcePrompt") == proof["prompt"]
+                    ):
+                        gen_input["prompt"] = node_data["prompt"]
+                        prompt_optimized = True
+                        break
+                    if action == "validate_generation" and sync_prompt is not True:
                         raise SeedanceError(
                             "Generation node prompt differs from the selected creative artifact",
                             code="CINE_GENERATION_NODE_PROMPT_MISMATCH",
@@ -729,6 +794,10 @@ async def execute_seedance_canvas_edit(
                                         **node_data,
                                         "prompt": proof["prompt"],
                                         "promptProvenance": None,
+                                        # Pipeline-written: a later sync or import may refresh it.
+                                        "importedPromptSha256": hashlib.sha256(
+                                            proof["prompt"].encode("utf-8")
+                                        ).hexdigest(),
                                     }
                                 },
                                 "commandId": f"cine-sync-prompt-{uuid.uuid4().hex}",
@@ -743,8 +812,9 @@ async def execute_seedance_canvas_edit(
                             "V3 rejected canonical prompt synchronization",
                             code="GENERATION_NODE_CHANGED",
                         )
+                    prompt_synced = True
                     break
-                generation_command.update(nodeId=node_id, expectedPrompt=proof["prompt"])
+                generation_command.update(nodeId=node_id, expectedPrompt=gen_input["prompt"])
             if action == "validate_generation":
                 preflight = await client.validate_generation(
                     resolved_project_id, generation_command
@@ -756,6 +826,7 @@ async def execute_seedance_canvas_edit(
                     "model": preflight.get("model"),
                     "reference_count": preflight.get("referenceCount"),
                     "validation_reports": proof["report_paths"],
+                    "prompt_synced": prompt_synced,
                     "next_step": "Submit with the same inputs only within existing generation authorization.",
                 }
             try:
@@ -802,6 +873,9 @@ async def execute_seedance_canvas_edit(
                         "V3 Prompt Agent did not return a valid final prompt",
                         code="PROMPT_OPTIMIZATION_FAILED",
                     ) from exc
+                if generation_request is not None:
+                    generation_request.record["optimized_prompt"] = final_prompt
+                    generation_request.save()
                 update = await client.submit_command(
                     resolved_project_id,
                     {
@@ -1183,6 +1257,29 @@ async def execute_seedance_canvas_edit(
                 "type": "generation.submit",
                 "commandId": cmd_id,
             }
+            if generation_request is not None:
+                if node_id:
+                    cmd["expectedRevision"] = await generation_request.current_revision(
+                        client, cmd.get("expectedPrompt")
+                    )
+                assert_current(proof)
+                return await generation_request.submit(
+                    client,
+                    cmd,
+                    {
+                        "validation_reports": proof["report_paths"],
+                        "seedance_project_id": resolved_project_id,
+                        "seedance_canvas_url": canvas_url,
+                        "prompt_optimized": prompt_optimized,
+                    },
+                )
+            if expected_continuation_job_id is not None:
+                from agentnexus.seedance.generation_requests import validate_continuation
+
+                _, cmd["expectedRevision"] = await validate_continuation(
+                    client, resolved_project_id, node_id, expected_continuation_job_id
+                )
+                assert_current(proof)
             res = await client.submit_command(resolved_project_id, cmd)
             if not res.get("accepted"):
                 return {"status": "failed", "outcome": "failed", "error": f"生成提交被拒绝: {res}"}
@@ -1217,6 +1314,15 @@ async def execute_seedance_canvas_edit(
         if isinstance(exc, ProductionRejected):
             detail = exc.detail
             reason, next_step = None, _FIX_ARTIFACT
+            if (
+                exc.code.startswith("CINE_GENERATION_REQUEST_")
+                or exc.code == "CINE_GENERATION_OUTCOME_UNKNOWN"
+            ):
+                next_step = (detail or {}).get("next_step") if isinstance(detail, dict) else None
+                next_step = (
+                    next_step
+                    or "Keep the original request ID and inputs. Reconcile the saved receipt; do not generate under a new identity to bypass this rejection."
+                )
             if isinstance(detail, list):
                 detail = _validation_rows(detail)
                 reason, missing_input_only = _validation_reason(detail)
@@ -1236,5 +1342,7 @@ async def execute_seedance_canvas_edit(
             }
         raise
     finally:
+        if generation_request is not None:
+            generation_request.close()
         if seedance_client is None:
             await client.close()

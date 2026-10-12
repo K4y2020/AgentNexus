@@ -238,6 +238,7 @@ def _filled(revision="r1"):
     return {
         "source_id": "src",
         "revision_id": revision,
+        "forms": [],
         "characters": ["ferryman"],
         "summary": {
             "premise": "fog",

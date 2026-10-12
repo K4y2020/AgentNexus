@@ -23,8 +23,11 @@ def test_skills_dir_comes_from_the_registered_film_analysis_skill(tmp_path):
 
 def test_only_the_contract_modules_can_be_loaded():
     assert pipeline_module(SKILLS, "draft_check").story_draft_gaps
+    assert pipeline_module(SKILLS, "generation").review_snapshot
+    assert pipeline_module(SKILLS, "transcribe").gateway_settings
+    assert pipeline_module(SKILLS, "media_assembly").assemble
     with pytest.raises(SkillModuleUnavailable, match="does not load"):
-        pipeline_module(SKILLS, "transcribe")
+        pipeline_module(SKILLS, "jev_review")
 
 
 def test_loaded_modules_share_one_package_per_pipeline():

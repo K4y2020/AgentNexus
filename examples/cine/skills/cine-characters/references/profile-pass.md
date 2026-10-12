@@ -60,8 +60,8 @@
 
 5. `image.prompt` 是**单张表现性插画**（不是技术图，可以放开打光）：四分之三视角半身、纯中性背景、柔和方向主光 + 冷调补光、浅景深、面部最实。
 
-   **画风走半写实厚涂，不要写「扁平矢量卡通」。** 实测「扁平矢量卡通」这句会让模型跟自己拧巴——同一批角色出来有的偏动画、有的偏写实。用这一档：
-   `Semi-realistic character illustration, painterly rendering with soft blended edges and visible brush texture, anatomically grounded`
+   **画风按 cast 的 `style` 预设写，用该预设的 `render` 句**（`styles` 命令可打印）；不要写「扁平矢量卡通」。实测「扁平矢量卡通」这句会让模型跟自己拧巴——同一批角色出来有的偏动画、有的偏写实。例如 `semi-realistic`：
+   `Semi-realistic character illustration, painterly rendering with soft blended edges and visible brush texture, anatomically grounded`；`photoreal` 用它自己的 render 句，且不写 painterly、brush、illustration。
 
    **真实感来自不完美，不是细节量。** 皮肤和五官要写具体：可见毛孔、肤色不匀、鼻翼耳缘的细微毛细血管、耳缘透光；眼睛要有湿润高光、下眼睑水光、虹膜纤维；**眼睑和眉毛左右略不对称**；发际线有细碎碎发破开轮廓。老年角色收益最大：老年斑、皮肤松弛，**皱纹要顺着表情肌走**（法令纹、鱼尾纹、抬头纹），不是随机刻线。
 
@@ -73,10 +73,10 @@
 
    ```
    ┌──────────┬────────────────────────────┐
-   │          │   正视    侧视    背视       │
+   │          │ 正视(无头) 侧视    背视      │
    │  半身像   │                            │
    │ （证件照） ├────────────────────────────┤
-   │          │  细节 · 细节 · 细节 · 细节   │
+   │          │  单眼 · 细节 · 细节 · 细节   │
    │   ~34%   │                            │
    └──────────┴────────────────────────────┘
               16:9
@@ -85,8 +85,8 @@
    | 区 | 内容 |
    | --- | --- |
    | **左** 约 34% | **半身像**：头肩，正面，居中，像证件照。脸画全、画细，这是面部设计的基准。**两侧肩膀完整**，底边**齐平直切** |
-   | **右上** | **全身三视图**：正视 / 侧视 / 背视并排，共用一条地平线 |
-   | **右下** | **细节条**：4–5 个关键细节的小特写，等距排一行，明显小于全身像 |
+   | **右上** | **全身三视图**：正视 / 侧视 / 背视并排，共用一条地平线。**正视不画头**：身体照常按比例站在地平线上，到脖子（领口上方）为止，头部位置留白 |
+   | **右下** | **细节条**：4–5 个小特写，等距排一行，明显小于全身像。**第一格固定是单眼特写**（一只眼连眉毛和眼睑，裁紧，不带另一只眼、鼻子和嘴），其余是关键细节 |
 
    三个区之间用**细线**分隔。整张纯白背景、四周留白均匀。
 
@@ -100,9 +100,9 @@
 
    **细节放不下怎么办**：底部一行排不下就沿画布右缘往下延伸成一竖列。**但永远是细节让位，不是人物让位**——提示词里要明说 `the detail studies give way, not the figures`。
 
-   **一张图里只能有一个长相。** 三视图的面部与左栏半身像一致——同样的五官、发型、表情。左栏是基准，右栏照着它画。
+   **正脸只画一次。** 整张图唯一的正脸是左栏半身像；正视全身像不画头，不留第二张小正脸——小尺寸的正脸总会和半身像画得不完全一样，参考图里就有了两个版本的脸。侧视的侧脸与半身像一致——同样的五官、发型、表情；背视只见同样的发型。细节条的单眼特写和半身像是同一只眼睛，给出眼型、眼睑和眉形的细节。只画一只眼：双眼加鼻梁在人脸检测里就是一张脸，提交火山方舟时会和其他人脸一起被遮住眼睛；单眼特写不算人脸，原样保留。
 
-   提示词里必须逐条写明：`ONE 16:9 landscape canvas`、`LEFT ZONE ... about 34% of the canvas width`、`RIGHT-TOP ZONE`、`RIGHT-BOTTOM ZONE`、`thin hairline rules`、`PROPORTIONS ARE CRITICAL`、`the detail studies give way, not the figures`。
+   提示词里必须逐条写明：`ONE 16:9 landscape canvas`、`LEFT ZONE ... about 34% of the canvas width`、`RIGHT-TOP ZONE`、`THE FRONT VIEW IS DRAWN WITHOUT ITS HEAD`、`RIGHT-BOTTOM ZONE`、`THE FIRST STUDY IS AN EXTREME CLOSE-UP OF ONE EYE`、`thin hairline rules`、`PROPORTIONS ARE CRITICAL`、`the detail studies give way, not the figures`。
 
 7. `voice.prompt` 是给 TTS 音色设计引擎的：描述**乐器本身**，不是某一句台词的演绎。性别、听感年龄、音色、音高区间、共鸣、气声、语速、节奏、口音、能量、默认情绪。
 

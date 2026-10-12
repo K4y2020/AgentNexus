@@ -47,6 +47,7 @@ def _project(tmp_path, *, events=EVENTS):
         {
             "source_id": "film",
             "revision_id": "r1",
+            "forms": [],
             "characters": ["船夫", "商贩", "少女"],
             "summary": {
                 "premise": "雾天渡口，一船陌生人同行。",

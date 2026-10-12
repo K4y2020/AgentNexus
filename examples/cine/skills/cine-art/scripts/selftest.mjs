@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { artworkMedium } from '../../_shared/cine-common.mjs';
 import {
   ANCHOR_RANGE,
   DEFAULT_STYLE,
@@ -46,14 +47,35 @@ const gate = (d, id, names = null) => gateReport(d, names).find((g) => g.id === 
 
 /* ---------------- 画风预设 ---------------- */
 
-eq(DEFAULT_STYLE, 'realistic', '默认半写实');
-eq(SUPPORTED_STYLES.join(','), 'realistic,ghibli', '两档画风与 cine-characters 同名对齐');
-ok(!/photorealistic/.test(SCENE_STYLE_PRESETS.realistic.negative), 'realistic 不禁 photorealistic');
+eq(DEFAULT_STYLE, 'semi-realistic', '默认半写实');
+eq(SUPPORTED_STYLES.join(','), 'photoreal,semi-realistic,ghibli', '三档画风与 cine-characters 同名对齐');
+ok(!/photorealistic/.test(SCENE_STYLE_PRESETS['semi-realistic'].negative), 'realistic 不禁 photorealistic');
 ok(/photorealistic/.test(SCENE_STYLE_PRESETS.ghibli.negative), 'ghibli 必须禁 photorealistic');
-ok(/people/.test(SCENE_STYLE_PRESETS.realistic.negative), 'realistic 预设自带禁人');
+ok(/people/.test(SCENE_STYLE_PRESETS['semi-realistic'].negative), 'realistic 预设自带禁人');
 ok(/people/.test(SCENE_STYLE_PRESETS.ghibli.negative), 'ghibli 预设自带禁人');
-ok(!/pore|skin|subsurface/i.test(SCENE_STYLE_PRESETS.realistic.surface), '环境预设不带皮肤毛孔那套——那是角色的');
-eq(scenePreset('nope'), SCENE_STYLE_PRESETS.realistic, '未知风格退回默认');
+ok(!/pore|skin|subsurface/i.test(SCENE_STYLE_PRESETS['semi-realistic'].surface), '环境预设不带皮肤毛孔那套——那是角色的');
+eq(scenePreset('nope'), SCENE_STYLE_PRESETS['semi-realistic'], '未知风格退回默认');
+eq(scenePreset('realistic'), SCENE_STYLE_PRESETS['semi-realistic'], '旧名 realistic 仍指半写实');
+{
+  const photo = SCENE_STYLE_PRESETS.photoreal;
+  ok(!/photorealistic|3d render/.test(photo.negative), 'photoreal 不禁 photorealistic');
+  ok(/painterly/.test(photo.negative) && /digital noise/.test(photo.negative), 'photoreal 禁绘画感和噪点');
+  ok(/people/.test(photo.negative), 'photoreal 预设自带禁人');
+  eq(artworkMedium(photo.render).join(','), 'live-action', 'photoreal 渲染句只有实拍一种媒介');
+  eq(seedFromOutline(OUTLINE, { style: 'photoreal' }).style, 'photoreal', 'seed 按 --style 取画风');
+  eq(seedFromOutline(OUTLINE, { style: 'realistic' }).style, 'semi-realistic', 'seed 把旧名写成新名');
+  const doc = clone();
+  doc.style = 'realistic';
+  eq(validateArt(doc, castNamesOf(CAST)).length, 0, '旧名 realistic 的 art.json 照样通过');
+  const photoDoc = clone();
+  photoDoc.style = 'photoreal';
+  for (const item of [...photoDoc.scenes, ...(photoDoc.props ?? [])]) {
+    if (!item.image) continue;
+    item.image.sheet = (item.image.sheet ?? '').replace(SCENE_STYLE_PRESETS['semi-realistic'].render, photo.render);
+    item.image.prompt = item.image.prompt.replace(/semi-realistic[^,.]*/gi, 'photorealistic live-action reference');
+  }
+  ok(gate(photoDoc, 'style-match').detail.includes('没禁 painterly'), 'photoreal 反向词没禁 painterly 被拦');
+}
 
 /* ---------------- slug ---------------- */
 
@@ -65,7 +87,7 @@ eq(slug('a/b:c'), 'a-b-c', '危险字符替换');
 
 const seeded = seedFromOutline(OUTLINE);
 eq(seeded.source, '渡口', 'seed 带书名');
-eq(seeded.style, 'realistic', 'seed 默认画风');
+eq(seeded.style, 'semi-realistic', 'seed 默认画风');
 eq(seeded.scenes.length, 3, 'seed 搬全部场景');
 {
   const s01 = seeded.scenes.find((s) => s.id === 'S01');
@@ -118,6 +140,18 @@ ok(castNamesOf({ characters: [] }).length === 0, '空 cast 不炸');
 /* ---------------- 夹具本身 ---------------- */
 
 eq(validateArt(FIXTURE, NAMES).length, 0, '自带样例通过校验（含角色名检查）');
+eq(validateArt(FIXTURE, NAMES, CAST).length, 0, '自带样例与角色参考图媒介一致');
+{
+  const posters = structuredClone(FIXTURE);
+  posters.scenes[0].image.prompt += ' Anime posters curl on the wall.';
+  ok(!validateArt(posters, NAMES, CAST).some((x) => x.includes('媒介')), '墙上的动漫海报是物件，不算媒介');
+  const mixed = structuredClone(FIXTURE);
+  mixed.scenes[0].image.prompt += ' Photorealistic texture.';
+  ok(validateArt(mixed, NAMES).some((x) => x.includes('同时写了几种媒介')), '一张场景参考图写两种媒介被拦');
+  const castAnime = structuredClone(CAST);
+  for (const c of castAnime.characters) c.image.sheet = 'Anime character sheet.';
+  ok(validateArt(FIXTURE, NAMES, castAnime).some((x) => x.includes('与角色参考图')), '场景与角色参考图媒介不同被拦');
+}
 ok(gateReport(FIXTURE, NAMES).every((g) => g.ok), '样例全部质量门通过');
 eq(gateReport(FIXTURE).length, 11, '质量门共 11 道（场景 7 + 道具 4）');
 

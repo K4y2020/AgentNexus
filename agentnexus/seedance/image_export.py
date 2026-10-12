@@ -17,7 +17,7 @@ MAX_VIDEO_BYTES = 512 * 1024 * 1024
 
 
 async def export_job_image(
-    server, session_id, client, *, job_id, output_path=None, output_index=0
+    server, session_id, client, *, job_id, output_path=None, output_index=0, expected_kind=None
 ):
     response = await server.get(f"/v1/sessions/{session_id}", timeout=10)
     response.raise_for_status()
@@ -33,6 +33,10 @@ async def export_job_image(
     kind = job.get("kind")
     if kind not in ("image", "video") or job.get("status") != "succeeded":
         raise ProductionRejected("CINE_MEDIA_JOB_NOT_SUCCEEDED")
+    if expected_kind is not None and kind != expected_kind:
+        raise ProductionRejected(
+            "CINE_MEDIA_KIND_MISMATCH", {"expected": expected_kind, "actual": kind}
+        )
     refs = job.get("outputRefs") or [job.get("outputRef")]
     if not isinstance(refs, list) or output_index >= len(refs):
         raise ProductionRejected("CINE_OUTPUT_INDEX_INVALID")
@@ -52,7 +56,7 @@ async def export_job_image(
             for part in [Path(p) for p in destination.relative_to(root).parts]
         ):
             raise ProductionRejected("CINE_OUTPUT_PATH_INVALID")
-    raw = await client.get_local_image(
+    raw = await client.get_local_media(
         storage, MAX_IMAGE_BYTES if kind == "image" else MAX_VIDEO_BYTES
     )
     digest = hashlib.sha256(raw).hexdigest()
@@ -112,5 +116,9 @@ async def export_job_image(
         "next_step": (
             "Use sys_os_view_image with this exact path, review once, then report. "
             "Do not search directories or redownload through shell."
+            if kind == "image"
+            else "Review the complete video for visuals, motion and audio "
+            "before accepting delivery. "
+            "Export and file integrity do not establish audiovisual quality."
         ),
     }

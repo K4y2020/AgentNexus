@@ -66,6 +66,7 @@ def story_fixture(tmp_path):
         "source_id": "s",
         "revision_id": "r1",
         "dialogue_provenance": {"status": "unverified", "source_path": None},
+        "forms": [],
         "characters": ["masked protagonist"],
         "summary": {
             "premise": "arrival",

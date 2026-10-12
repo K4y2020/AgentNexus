@@ -3,24 +3,24 @@
 三层：**集 → 段（segment）→ 分镜（cut）**。
 
 - **段** = 一次视频生成调用，总时长 ≤ `maxSegmentSeconds`（默认 15 秒），不跨场次——换景必开新段
-- **分镜** = 段内的一次剪切，`minCutSeconds`–`maxCutSeconds`（默认 2–5 秒），各自认领剧本节拍、带景别运镜和一张分镜图
+- **分镜** = 一次连续拍摄，段内的时长范围为 `minCutSeconds`–`maxCutSeconds`（H3 默认 2–15 秒）；单镜可覆盖整段，超过段上限时沿同一镜头续接，不把生成边界当切点。各自认领剧本节拍、带景别运镜和一张分镜图
 - **分镜图** = 每个分镜一张关键帧：第 1 切的是**主分镜图**（钉在 0.00 秒），其余是**子分镜图**（各钉在自己的切点时刻）。**每段一个文件夹**：`<段号>/f<切序>.png` + `prompt.md`（export 生成，内容就是 h3Prompt）
 
 ```json
 {
   "source": "渡口",
-  "style": "realistic",
+  "style": "semi-realistic",
   "styleSentence": "The target video uses semi-realistic painterly rendering with soft blended edges and visible brush texture, a muted ink-blue and cold gray-green palette, and soft misty morning light matching the cast and art references.",
   "continuityContractVersion": 1,
   "promptLang": "en",
-  "params": { "maxSegmentSeconds": 15, "minCutSeconds": 2, "maxCutSeconds": 5, "maxOnScreen": 3, "tolerance": 0.15 },
+  "params": { "maxSegmentSeconds": 15, "minCutSeconds": 2, "maxOnScreen": 3, "tolerance": 0.15 },
   "episodes": [ { "ep": 1, "segments": [ ... ] } ]
 }
 ```
 
 `promptLang` 可省略（**默认 `en`**）：六段正文英文、禁角色名，台词保留原文并使用一致的语言标签，如 `<d>[Chinese]` 或 `<d>[English]`。`zh` 保留旧中文模式兼容，不代表符合官方英文 Ref2VA 格式；Ref2VA 字段名仍为英文。
 
-`style` 可省略（默认 `realistic`），预设与角色/场景 skill 同名对齐（`realistic` / `ghibli`）。`realistic` 是半写实厚涂，frame 必含 `semi-realistic painterly`；`ghibli` 对应 `hand-painted anime`。画风由本片 cast/art 的实际图像设定推导，每切 frame 与每段视频描述保持同一媒介、笔触和配色。
+`style` 可省略（默认 `semi-realistic`），预设与角色/场景 skill 同名对齐（`photoreal` / `semi-realistic` / `ghibli`）。`photoreal` 是写实，frame 必含 `photorealistic live-action`；`semi-realistic`（旧名 `realistic`，0.14.0 移除）是半写实厚涂，frame 必含 `semi-realistic painterly`；`ghibli` 对应 `hand-painted anime`。画风由本片 cast/art 的实际图像设定推导，每切 frame 与每段视频描述保持同一媒介、笔触和配色。
 
 `styleSentence` 是可选顶层 string：从 cast/art 推导的一条英文风格句，在每段 Ref2VA 的 `detailed_description` 中、`[Shot 1]` 之前逐字复用；省略时各段仍须使用同一条风格句。`seed --cast <cast.json> --art <art.json>` 读取上游预设并给起稿句，按具体设定改句时同步全片。
 
@@ -40,7 +40,7 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `beats` | [int, int] | 认领该场第几拍到第几拍（含两端）。**每个节拍必须被恰好一个分镜认领**，按顺序、连续 |
-| `seconds` | number | 分镜时长，默认 2–5 秒，可用 params 的现有 min/maxCutSeconds 配置。认领节拍的台词秒数必须装得下 |
+| `seconds` | number | 分镜时长，默认下限 2 秒，上限跟随 `maxSegmentSeconds`（H3 默认 15 秒）。`maxCutSeconds` 仅在明确要求更短单镜时配置；认领节拍的台词秒数必须装得下，多人可以依次对白 |
 | `size` | enum | 景别：`extreme-wide` 大远景 / `wide` 全景 / `medium` 中景 / `close` 特写 / `extreme-close` 大特写 |
 | `camera` | enum | 运镜，**直接用 H3 官方词表**（原样字符串）：`Static Shot` `Push In` `Pull Out` `Zoom In/Out` `Pan Left/Right` `Truck Left/Right` `Tilt Up/Down` `Pedestal Up/Down` `Arc Shot` `Tracking Shot` `Shake Slightly/Strongly` `POV` `Roll Clockwise/Counterclockwise` |
 | `characters` | string[] | 画内人物（C 编号），必须 ⊆ 剧本该场人物；空镜给空数组。> `maxOnScreen` 时必须带 `note` |
@@ -110,4 +110,4 @@ non_diegetic_music: N/A
 
 ## 时长约束链
 
-台词秒数（按剧本语速折算）≤ 分镜 `seconds` ≤ maxCutSeconds；段 Σ分镜 ≤ maxSegmentSeconds（默认 15 秒）；集 Σ段 落在剧本 `targetSeconds` ± tolerance（默认 15%）。由 validate 逐级对账。
+台词秒数（按剧本语速折算）≤ 分镜 `seconds` ≤ maxCutSeconds；段 Σ分镜 ≤ maxSegmentSeconds（默认 15 秒）；集 Σ段 落在剧本 `targetSeconds`（剧本没有目标时为剧本预估时长）± tolerance（默认 15%）。由 validate 逐级对账。

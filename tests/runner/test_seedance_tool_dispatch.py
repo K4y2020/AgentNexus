@@ -30,6 +30,40 @@ def test_removed_agent_message_is_not_dispatched():
     assert should_dispatch_locally("seedance_agent_message") is False
 
 
+def test_quality_review_is_opt_in_and_has_no_model_supplied_verdict():
+    assert should_dispatch_locally("cine_review_media")
+    manager = ToolManager(
+        AgentSpec(
+            spec_version=1,
+            tools=ToolsConfig(builtins=[BuiltinToolConfig(name="cine_review_media")]),
+        )
+    )
+    schema = manager.get_tool("cine_review_media").get_schema()["function"]["parameters"]
+    assert set(schema["properties"]) == {"production_dir"}
+    assert schema["additionalProperties"] is False
+
+
+@pytest.mark.asyncio
+async def test_quality_review_dispatches_to_independent_runner():
+    with patch(
+        "agentnexus.seedance.media_quality.review_media",
+        new=AsyncMock(
+            return_value={"status": "reviewed", "envelope": {"signature": "runner-result"}}
+        ),
+    ) as review:
+        async with httpx.AsyncClient() as client:
+            result = json.loads(
+                await execute_tool(
+                    tool_name="cine_review_media",
+                    arguments=json.dumps({"production_dir": "production"}),
+                    conversation_id="topic",
+                    server_client=client,
+                )
+            )
+    assert result["status"] == "reviewed"
+    assert review.await_args.kwargs["production_dir"] == "production"
+
+
 @pytest.mark.asyncio
 async def test_removed_agent_message_does_not_reach_the_bridge():
     async with httpx.AsyncClient() as client:
@@ -150,6 +184,10 @@ def test_tool_manager_has_seedance_edit_canvas():
     assert "expected_revision" in props
     assert "confirm" in props
     assert "generation_allowed" in props
+    assert "generation_request_id" in props
+    assert "expected_continuation_job_id" in props
+    assert props["sync_prompt"]["type"] == "boolean"
+    assert "export_video" in props["action"]["enum"]
 
 
 @pytest.mark.asyncio
@@ -242,3 +280,44 @@ async def test_generation_catalog_dispatch_is_read_only():
             )
     assert json.loads(result)["models"][0]["value"] == "test-image"
     assert read.call_args.kwargs["action"] == "models"
+
+
+@pytest.mark.asyncio
+async def test_generation_request_identity_is_forwarded_without_coercion():
+    with patch(
+        "agentnexus.seedance.bridge.execute_seedance_canvas_edit",
+        new=AsyncMock(return_value={"status": "submitted", "job": {"id": "job"}}),
+    ) as edit:
+        async with httpx.AsyncClient() as client:
+            await execute_tool(
+                tool_name="seedance_edit_canvas",
+                arguments=json.dumps(
+                    {
+                        "action": "submit_generation",
+                        "generation_allowed": True,
+                        "generation_request_id": "plan-1:shot-1",
+                        "expected_continuation_job_id": "previous-job",
+                    }
+                ),
+                conversation_id="topic",
+                server_client=client,
+            )
+    assert edit.call_args.kwargs["generation_request_id"] == "plan-1:shot-1"
+    assert edit.call_args.kwargs["expected_continuation_job_id"] == "previous-job"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("value", "forwarded"), [(True, True), ("true", False), (None, False)])
+async def test_preflight_prompt_sync_is_forwarded_only_as_a_real_boolean(value, forwarded):
+    with patch(
+        "agentnexus.seedance.bridge.execute_seedance_canvas_edit",
+        new=AsyncMock(return_value={"status": "validated"}),
+    ) as edit:
+        async with httpx.AsyncClient() as client:
+            await execute_tool(
+                tool_name="seedance_edit_canvas",
+                arguments=json.dumps({"action": "validate_generation", "sync_prompt": value}),
+                conversation_id="topic",
+                server_client=client,
+            )
+    assert edit.call_args.kwargs["sync_prompt"] is forwarded

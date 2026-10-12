@@ -309,7 +309,25 @@ ok(validateScript({ source: 'x', episodes: [] }).some((p) => p.includes('episode
 {
   const doc = clone(FIXTURE);
   delete doc.episodes[0].targetSeconds;
-  ok(validateScript(doc).some((p) => p.includes('targetSeconds')), '缺目标秒数报出来');
+  ok(validateScript(doc, CTX).some((p) => p.includes('targetSeconds')), '大纲定了时长却缺目标秒数报出来');
+  const free = clone(OUTLINE);
+  delete free.params.minutesPerEpisode;
+  ok(!validateScript(doc, { ...CTX, outline: free }).some((p) => p.includes('targetSeconds')), '大纲没定时长就不要求目标秒数');
+  doc.episodes[0].targetSeconds = 0;
+  ok(validateScript(doc).some((p) => p.includes('targetSeconds 必须大于 0')), '目标秒数为 0 报出来');
+}
+{
+  // 编剧定长：大纲没定时长，seed 不带目标，整份剧本不设目标也零违规
+  const free = clone(OUTLINE);
+  delete free.params.minutesPerEpisode;
+  ok(seedFromOutline(free).episodes.every((e) => !('targetSeconds' in e)), '没定时长时 seed 不设目标');
+  const doc = clone(FIXTURE);
+  for (const ep of doc.episodes) delete ep.targetSeconds;
+  const ctx = { ...CTX, outline: free };
+  eq(validateScript(doc, ctx).length, 0, '编剧定长零违规');
+  ok(gateReport(doc, ctx).find((g) => g.id === 'duration').detail.includes('编剧'), '时长门写明由编剧定长');
+  ok(renderMarkdown(doc, ctx).includes('（编剧定长）'), 'MD 每集写预估、不写目标');
+  ok(!renderHtml(doc, ctx).includes('undefined'), 'HTML 没有目标也不出 undefined');
 }
 {
   const doc = clone(FIXTURE);
@@ -370,7 +388,7 @@ ok(seeded.episodes[0].seedNote.includes(OUTLINE.episodes[0].synopsis.slice(0, 10
 eq(seedFromOutline(OUTLINE, [3, 5]).episodes.map((e) => e.ep).join(','), '3,4,5', '--eps 区间过滤');
 eq(seedFromOutline(OUTLINE, [2, 2]).episodes.length, 1, '单集区间');
 eq(seedFromOutline({}).episodes.length, 0, '空大纲不崩');
-eq(seedFromOutline({ params: {} }).episodes.length, 0, '缺分钟数用默认值不崩');
+eq(seedFromOutline({ params: {} }).episodes.length, 0, '缺分钟数不崩');
 
 /* ---------------- slug ---------------- */
 

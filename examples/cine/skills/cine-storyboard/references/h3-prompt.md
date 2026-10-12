@@ -12,7 +12,7 @@ Ref2VA 六段的正文用英文，默认 `promptLang: "en"`。台词、歌词和
 
 ## 全片风格跟设定图走
 
-从本片 cast 的 `image.style`、`image.prompt` / `image.sheet` 以及 art 的 `image.prompt`、`image.tags` 取共同的媒介、笔触、配色与光线。默认 `realistic` 预设是 **semi-realistic painterly**。上游明确为其他预设时跟随上游；角色与场景的媒介冲突先解决。
+从本片 cast 的 `image.style`、`image.prompt` / `image.sheet` 以及 art 的 `image.prompt`、`image.tags` 取共同的媒介、笔触、配色与光线。预设与角色/场景同名：`photoreal` 是 **photorealistic live-action**，`semi-realistic`（旧名 `realistic`）是 **semi-realistic painterly**，`ghibli` 是 hand-painted anime。上游明确为其他预设时跟随上游；角色与场景的媒介冲突先解决。
 
 写出一条英文风格句，可存于顶层 `styleSentence`，全片每段逐字复用。Ref2VA 放在 `detailed_description:` 之后、`[Shot 1]` 之前，不在 Shot 1 里重复风格。每个 `frame` 沿用这套媒介与具体画风。`seed --cast <cast.json> --art <art.json>` 读取上游预设并提供起稿风格句；按真实设定改句子时，只改一次并同步全片。
 
@@ -90,7 +90,7 @@ retention_analysis:
 
 **每段都写声音。** 每段单独生成，视频模型只读这一段的提示词，不知道上一段谁是什么嗓子；没写就按画面猜，一位老者短促的呵斥会被配成尖细的女声。所以引用角色在本段第一次开口之前（画外音和心声也算），把角色卡 `voice.prompt` 的第一句逐字写进来，也就是年龄性别、音色和音区这些声音身份。常见写法是紧跟 `(Sx)` 写 `(voice: …)`，同一段里再开口写 `in the same … voice`。`--ref2va` 校验会查。`voice.prompt` 后面的音量、语速和默认情绪不照抄，换成这一句的说法。
 
-**每句写说法。** 每句台词在 `<d>` 前写清这一句的情绪和说法，依据剧本这句的 `delivery` 和拉片里这句的表演，例如 `in a short, low, clipped rebuke` 或 `wails, strained and breathless`，不能只写 `says`。一句里情绪有转折（先惊喜、再吃痛），把转折写出来。两人对话时，第二个开口的人同样绑定自己的 `<Subject N> (Sx)` 并写上声音；能让他出现在画面里就别放画外，画外的短句最容易配错声音。
+**每句写表演。** 每句台词在 `<d>` 前写清这一句看得见的表演和声音的说法：脸上的表情、手上的动作、视线落在哪、身体靠近还是退开，再加情绪和语气。依据剧本这句的 `delivery` 和拉片里这句的表演，例如 `her eyes drop to his reaching hand, she pulls the suitcase tighter against her chest and says in a quiet, guarded tone` 或 `he scrubs his eyes with the back of his wrist, then wails, strained and breathless`。只写 `in a teasing tone` 这类语调，模型就只会让人站着念词；也不能只写 `says`。一句里情绪有转折（先惊喜、再吃痛），把转折写出来；听者的反应写在这句之后。两人对话时，第二个开口的人同样绑定自己的 `<Subject N> (Sx)` 并写上声音；能让他出现在画面里就别放画外，画外的短句最容易配错声音。
 
 画外音和心声的英文句式固定为：
 

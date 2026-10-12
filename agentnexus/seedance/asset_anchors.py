@@ -23,6 +23,13 @@ def _character_sheet(entry: dict) -> str:
     return str(image.get("sheet") or image.get("prompt") or "").strip()
 
 
+def _character_state(entry: dict, state_id: str) -> dict | None:
+    return next(
+        (s for s in entry.get("states") or [] if isinstance(s, dict) and s.get("id") == state_id),
+        None,
+    )
+
+
 class CastIndex(NamedTuple):
     """Which cast card describes each character id the storyboard uses."""
 
@@ -178,8 +185,23 @@ def _asset_nodes(nodes: list[dict], key: str) -> dict:
         if n.get("type") == "image_prompt":
             data = n.get("data") or {}
             val = data.get(key)
-            if val is not None:
+            # A costume-state sheet carries its character's id but is not the main sheet.
+            if val is not None and not data.get("characterState"):
                 result[val] = n
+    return result
+
+
+def _state_nodes(nodes: list[dict]) -> dict:
+    """Existing costume-state sheet cards keyed by (characterId, characterState)."""
+    result = {}
+    for n in nodes:
+        data = n.get("data") or {}
+        if (
+            n.get("type") == "image_prompt"
+            and data.get("characterId")
+            and data.get("characterState")
+        ):
+            result[(str(data["characterId"]), str(data["characterState"]))] = n
     return result
 
 
@@ -223,6 +245,33 @@ def _referenced_characters(segments) -> list[str]:
             for cut in seg.get("cuts") or []
             for cid in cut.get("characters") or []
             if cid
+        }
+    )
+
+
+def _segment_character_states(seg: dict) -> dict[str, list[str]]:
+    """Each character's costume states across the cuts of one segment it appears in."""
+    states: dict[str, list[str]] = {}
+    for cut in seg.get("cuts") or []:
+        declared = cut.get("characterStates")
+        declared = declared if isinstance(declared, dict) else {}
+        for cid in cut.get("characters") or []:
+            if cid:
+                state = declared.get(cid) or "default"
+                if state not in states.setdefault(cid, []):
+                    states[cid].append(state)
+    return states
+
+
+def _referenced_states(segments) -> list[tuple[str, str]]:
+    """Every non-default (character, state) pair the storyboard puts on screen."""
+    return sorted(
+        {
+            (cid, state)
+            for _, seg in segments
+            for cid, states in _segment_character_states(seg).items()
+            for state in states
+            if state != "default"
         }
     )
 
@@ -277,6 +326,20 @@ def _missing_visual_assets(
             problems.append(
                 f"Character {cid} ({entry.get('name', '')}) has no image.sheet in {cast_name}."
             )
+    on_canvas_states = _state_nodes(nodes)
+    for cid, state_id in _referenced_states(segments):
+        if (cid, state_id) in on_canvas_states:
+            continue
+        entry = cast_index.cards.get(cid)
+        if entry is None and cid not in on_canvas_characters:
+            continue  # the missing character is reported above
+        state = _character_state(entry, state_id) if entry else None
+        if state is None:
+            problems.append(
+                f"Character {cid} wears state {state_id}, which {cast_name} does not define."
+            )
+        elif not _character_sheet(state):
+            problems.append(f"Character {cid} state {state_id} has no image.sheet in {cast_name}.")
 
     ref_scenes = _referenced_scenes(segments, script_doc)
     ambiguous_indexes = _ambiguous_scene_indexes(ref_scenes)

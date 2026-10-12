@@ -702,4 +702,16 @@ ok(enMd.includes('**[Hook]**') && !enMd.includes('**【钩子】**'), 'EN MD 钩
 
 eq(DEFAULT_PER_VOLUME, 15, '默认每卷 15 章');
 
+{
+  // 用户没定单集时长：省略 minutesPerEpisode，由编剧按戏定长
+  const free = clone();
+  delete free.params.minutesPerEpisode;
+  eq(validateOutline(free).length, 0, '没定单集时长也通过校验');
+  ok(renderMarkdown(free).includes('6 集 × 编剧定长'), 'MD 参数行写明编剧定长');
+  ok(renderHtml(free).includes('时长由剧本定'), 'HTML 不算出 NaN 分钟');
+  const zero = clone();
+  zero.params.minutesPerEpisode = 0;
+  ok(validateOutline(zero).some((x) => x.includes('minutesPerEpisode')), '给了 0 分钟被拦');
+}
+
 console.log(`✓ ${passed} 项自测全部通过`);

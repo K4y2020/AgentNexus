@@ -241,3 +241,46 @@ async def test_get_snapshot_and_jobs():
 
         cancel_res = await client.cancel_job("job_1")
         assert cancel_res["accepted"] is True
+
+
+@pytest.fixture
+def local_v3():
+    import http.server
+    import threading
+
+    class Health(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"ok": true}')
+
+        def log_message(self, *_args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Health)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{server.server_address[1]}"
+    server.shutdown()
+    server.server_close()
+
+
+@pytest.mark.asyncio
+async def test_local_v3_is_reached_directly_even_with_a_system_proxy(local_v3, monkeypatch):
+    # A proxy that refuses connections stands in for one that cannot reach this machine.
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy"):
+        monkeypatch.setenv(name, "http://127.0.0.1:9")
+    for name in ("NO_PROXY", "no_proxy"):
+        monkeypatch.delenv(name, raising=False)
+    async with SeedanceClient(base_url=local_v3, api_key="") as client:
+        result = await client.healthz()
+    assert result["status"] == "ok"
+
+
+def test_remote_v3_keeps_the_configured_proxy(monkeypatch):
+    monkeypatch.setenv("SEEDANCE_ALLOWED_HOSTS", "seedance.example.com")
+    remote = SeedanceClient(base_url="https://seedance.example.com", api_key="")
+    local = SeedanceClient(base_url="http://localhost:8893", api_key="")
+    assert remote._client.trust_env is True
+    assert local._client.trust_env is False

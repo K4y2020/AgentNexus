@@ -76,7 +76,7 @@ metadata:
 2. 小说原文——自己归纳场景清单（主舞台优先，参考 cine-outline 的主场景上限思路：别贪多）
 3. 用户手写的场景清单
 
-画风：**默认 `realistic`**（半写实厚涂），动画质感用 `ghibli`。**跟角色 skill 保持同一档**——角色是吉卜力、场景是半写实，合成的时候没法看。跑 `node {baseDir}/scripts/cine-art.mjs styles` 看预设全文，整块取用不混搭。
+画风：**默认跟 cast 一致**（cast 又默认跟原片一致），三档 `photoreal`（写实）/ `semi-realistic`（半写实厚涂）/ `ghibli`，production seed 已写好 `style`。**跟角色 skill 保持同一档**——角色是吉卜力、场景是半写实，合成的时候没法看。跑 `node {baseDir}/scripts/cine-art.mjs styles` 看预设全文，整块取用不混搭。
 
 有 cast.json（cine-characters 的产出）也带上——校验「提示词不含角色名」要用。
 

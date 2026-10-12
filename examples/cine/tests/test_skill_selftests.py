@@ -8,6 +8,8 @@ import pytest
 
 SKILLS = Path(__file__).resolve().parents[1] / "skills"
 SELFTESTS = sorted(SKILLS.glob("*/scripts/selftest.mjs"))
+# Extra suites beside a skill's main self-test, such as the storyboard's cinematic audit.
+EXTRA_SELFTESTS = sorted(SKILLS.glob("*/scripts/*-selftest.mjs"))
 NODE = shutil.which("node")
 
 
@@ -22,7 +24,11 @@ def test_every_native_skill_has_a_selftest():
 
 
 @pytest.mark.skipif(NODE is None, reason="skill self-tests require node")
-@pytest.mark.parametrize("selftest", SELFTESTS, ids=[path.parts[-3] for path in SELFTESTS])
+@pytest.mark.parametrize(
+    "selftest",
+    SELFTESTS + EXTRA_SELFTESTS,
+    ids=[path.parts[-3] for path in SELFTESTS] + [path.stem for path in EXTRA_SELFTESTS],
+)
 def test_skill_selftest_passes(selftest):
     result = subprocess.run(
         [NODE, str(selftest)],

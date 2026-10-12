@@ -1,4 +1,4 @@
-"""Deterministic controller for unattended Cine production, source to canvas prompt cards.
+"""Deterministic controller for Cine drafts and explicitly authorized media delivery.
 
 Cine writes the creative artifacts; this module decides what happens next:
 which stage to write or repair, which mechanical steps to run itself, and when
@@ -31,13 +31,18 @@ MAX_UNCHANGED = 3
 # Failures of the environment rather than the artifact; retried once, never edited.
 TECHNICAL = {"blocked", "attribution_error", "timeout", "inputs_changed"}
 STATE = Path(".cine-validation") / "autopilot.json"
+# Errors longer than this are shown in part, and the whole list goes to ERROR_LOGS/<stage>.txt
+# so a long storyboard's repair still sees every violation.
+ERROR_EXCERPT = 6000
+ERROR_LOGS = Path(".cine-validation") / "errors"
 QUEUE = "review-queue.json"
 # Copies of the passed stages an open edit must leave alone, and of edits undone.
 FROZEN = Path(".cine-validation") / "frozen"
 REVERTED = Path(".cine-validation") / "reverted"
 DONE_DETAIL = (
     "Delivery is complete: every stage file passed its checks. Report only these files, "
-    "receipts, the canvas receipt when present and the review queue, then stop. Nothing "
+    "receipts, the canvas receipt when present and the review items, then stop. Quote each "
+    "review item as given; do not reword, merge or drop any. Nothing "
     "else needs to run: no canvas import, finalize, check, validate or render, and no "
     "production.json."
 )
@@ -62,6 +67,13 @@ class _Run:
         self.directory = directory
         self.state = _read_json(directory / STATE, {"stages": {}})
         self.queue = _read_json(directory / QUEUE, {"items": []})
+        retired = [item for item in self.queue["items"] if item.get("source") == "jev"]
+        if retired:
+            self.queue["items"] = [
+                item for item in self.queue["items"] if item.get("source") != "jev"
+            ]
+            self.queue.setdefault("retired_items", []).extend(retired)
+            _write_json(directory / QUEUE, self.queue)
 
     def stage(self, name: str) -> dict[str, Any]:
         return self.state["stages"].setdefault(
@@ -93,6 +105,7 @@ class _Run:
             "receipts": {stage: self.stage(stage).get("receipt") for stage in ORDER},
             "detail": DONE_DETAIL,
             **self.summary(),
+            "review": [i for i in self.queue["items"] if i["severity"] == "review"],
         }
         if delivery == "canvas":
             result["canvas_receipt"] = self.state["canvas_synced"].get("receipt")
@@ -106,6 +119,7 @@ def _location_inputs(directory: Path, stage: str) -> list[Path]:
         prod.source_material_path(directory),
         Path(prod.__file__).with_name("location_gate.py"),
         Path(prod.__file__).with_name("performance_gate.py"),
+        Path(prod.__file__).with_name("form_gate.py"),
     ]
 
 
@@ -118,6 +132,7 @@ def _dependencies(directory: Path, stage: str, row: dict[str, Any]) -> dict[str,
 
 def _required_inputs(directory: Path, stage: str) -> list[Path]:
     paths = _location_inputs(directory, stage)
+    paths.append(Path(prod.__file__))
     paths.append(prod.script_path(stage))
     if stage == "script":
         paths.append(directory / "person-map.json")
@@ -136,7 +151,10 @@ def _required_inputs(directory: Path, stage: str) -> list[Path]:
         paths.extend(prod.source_transcript_candidates(directory))
         paths.append(directory / "source-transcript-attributed.json")
     if stage == "storyboard":
-        paths.append(Path(prod.__file__).with_name("shot_state_gate.py"))
+        paths.extend(
+            Path(prod.__file__).with_name(name)
+            for name in ("shot_state_gate.py", "pov_gate.py", "form_gate.py")
+        )
     return paths
 
 
@@ -153,7 +171,22 @@ def _default_source_text(directory: Path) -> Path | None:
     return None
 
 
-def _errors(row: dict[str, Any]) -> list[str]:
+def _clip(text: str, limit: int) -> str:
+    """Head and tail of a long text: a validator lists violations first, a traceback ends last."""
+    if len(text) <= limit:
+        return text
+    marker = "\n…（中间有省略）…\n"
+    keep = max(limit - len(marker), 0)
+    head = keep * 3 // 4
+    return text[:head] + marker + text[len(text) - (keep - head) :]
+
+
+def _error_log(directory: Path, stage: str) -> Path:
+    return (directory / ERROR_LOGS / f"{stage}.txt").resolve()
+
+
+def _errors(row: dict[str, Any], log: Path | None = None) -> list[str]:
+    """The check's errors; when they are too long to show, all of them are saved to ``log``."""
     errors = list(row.get("errors") or [])
     errors += (row.get("asset_anchors") or {}).get("problems") or []
     # A passing validator's stdout is its receipt and advisories, not an error.
@@ -161,8 +194,27 @@ def _errors(row: dict[str, Any]) -> list[str]:
     for stream in streams:
         text = (row.get(stream) or "").strip()
         if text:
-            errors.append(text[-2000:])
-    return errors
+            errors.append(text)
+    if sum(len(error) for error in errors) <= ERROR_EXCERPT:
+        if log is not None:
+            log.unlink(missing_ok=True)
+        return errors
+    if log is not None:
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text("\n\n".join(errors) + "\n", encoding="utf-8")
+    shown: list[str] = []
+    budget = ERROR_EXCERPT
+    for error in errors:
+        if budget < 200:
+            break
+        shown.append(_clip(error, budget))
+        budget -= len(shown[-1])
+    hidden = len(errors) - len(shown)
+    note = "错误太多，上面只列出一部分" + (f"，另有 {hidden} 条没列出" if hidden else "")
+    if log is not None:
+        note += f"。完整清单在 {log}：修复前先读完整清单，同一类问题一次改完。"
+    shown.append(note)
+    return shown
 
 
 def _repair_target(stage: str, row: dict[str, Any]) -> str:
@@ -175,19 +227,15 @@ def _repair_target(stage: str, row: dict[str, Any]) -> str:
 
 def _findings(directory: Path, stage: str, row: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     """Non-blocking review items from a passed stage, keyed by their source."""
-    found: dict[str, list[dict[str, Any]]] = {"jev": [], "attribution": [], "assets": []}
-    jev = row.get("jev")
-    if jev and jev.get("status") != "passed":
-        found["jev"].append(
+    found: dict[str, list[dict[str, Any]]] = {"attribution": [], "assets": []}
+    comparison = row.get("source_comparison")
+    found["source_comparison"] = []
+    if isinstance(comparison, dict) and comparison.get("status") == "unchecked":
+        found["source_comparison"].append(
             {
                 "severity": "review",
-                "reason": f"jev_{jev.get('status')}",
-                "detail": {
-                    "failures": jev.get("failures"),
-                    "error": jev.get("error"),
-                    "next_action": (jev.get("scheduler") or {}).get("next_action"),
-                    "receipt": jev.get("receipt_path"),
-                },
+                "reason": "source_comparison_unchecked",
+                "detail": comparison,
             }
         )
     if stage == "script" and "--source" in row.get("command", []):
@@ -241,6 +289,19 @@ def _findings(directory: Path, stage: str, row: dict[str, Any]) -> dict[str, lis
                 "severity": "review",
                 "reason": "shot_states_unchecked",
                 "detail": {"error": shot_states.get("error") or shot_states.get("errors")},
+            }
+        )
+    pov = row.get("pov") or {}
+    found["pov"] = [
+        {"severity": "review", "reason": item["reason"], "detail": item}
+        for item in pov.get("review") or []
+    ]
+    if pov.get("status") == "unavailable" or pov.get("errors"):
+        found["pov"].append(
+            {
+                "severity": "review",
+                "reason": "pov_unchecked",
+                "detail": {"error": pov.get("error") or pov.get("errors")},
             }
         )
     anchors = row.get("asset_anchors") or {}
@@ -395,13 +456,36 @@ def next_step(
     directory: Path,
     *,
     source_text: Path | None = None,
-    jev: bool = True,
     retry: bool = False,
     text_only: bool = False,
+    generation_plan: Path | None = None,
+    generation_receipt: Path | None = None,
+    assemble_media: bool = False,
 ) -> dict[str, Any]:
     """Return the one next action for an unattended production run."""
     directory = Path(directory).resolve()
     _refuse_damaged_inputs(directory)
+    try:
+        from . import generation
+    except ImportError:
+        import generation
+    if (directory / generation.STATE).exists():
+        if text_only:
+            raise ValueError(
+                "An active media run cannot become text-only; inspect its saved jobs."
+            )
+        return generation.next_step(
+            directory,
+            plan_path=generation_plan,
+            receipt_path=generation_receipt,
+            source_text=source_text,
+            retry=retry,
+            assemble=assemble_media,
+        )
+    if generation_receipt or assemble_media:
+        raise ValueError("Start an authorized media run with --generation-plan first")
+    if generation_plan and text_only:
+        raise ValueError("Choose either text-only delivery or an authorized generation plan")
     if not prod.stage_path(directory, "outline", must_exist=False).exists():
         return {
             "action": "intake",
@@ -422,10 +506,31 @@ def next_step(
             "gaps": gaps,
         }
     run = _Run(directory)
+    if generation_plan:
+        run.state["generation_plan"] = str(generation_plan.resolve(strict=True))
+        run.state.pop("delivery", None)
+        run.save()
     if text_only:
         run.state["delivery"] = "text"
+        run.state.pop("generation_plan", None)
     reverted = _restore_frozen(run)
-    result = _decide(run, source_text or _default_source_text(directory), jev=jev, retry=retry)
+    result = _decide(run, source_text or _default_source_text(directory), retry=retry)
+    if result.get("action") in {"done", "import_canvas"} and run.state.get("generation_plan"):
+        plan_path = Path(run.state["generation_plan"])
+        plan = prod.read(plan_path)
+        generation.validate_plan(directory, plan)
+        if result["action"] == "done" or plan.get("canvas_strategy") == "existing_nodes":
+            if result.get("blocking_items"):
+                return _escalate(
+                    run, "storyboard", "generation_blocked_by_review", run.queue["items"], None
+                )
+            # Native stages passed; the bridge will validate each selected existing node.
+            result = generation.next_step(
+                directory,
+                plan_path=plan_path,
+                source_text=source_text or _default_source_text(directory),
+                retry=retry,
+            )
     if reverted:
         notice = (
             "Undid changes to "
@@ -444,7 +549,7 @@ def next_step(
     return result
 
 
-def _decide(run: _Run, source_text: Path | None, *, jev: bool, retry: bool) -> dict[str, Any]:
+def _decide(run: _Run, source_text: Path | None, *, retry: bool) -> dict[str, Any]:
     directory = run.directory
     for stage in ORDER:
         record = run.stage(stage)
@@ -468,21 +573,27 @@ def _decide(run: _Run, source_text: Path | None, *, jev: bool, retry: bool) -> d
                 return _escalate(run, stage, "seed_failed", str(exc), None)
         recorded = record.get("passed_inputs") or {}
         model_current = stage != "script" or record.get("vision_model") == prod.vision_model()
+        source_path = str(Path(source_text).resolve()) if source_text is not None else None
+        source_current = stage not in ("cast", "script") or (
+            record.get("source_text") == source_path
+        )
         if (
             model_current
+            and source_current
             and _still_current(recorded)
             and all(str(path) in recorded for path in _required_inputs(directory, stage))
         ):
             continue
-        row = prod.check_stage(directory, stage, source_text, advise_jev=jev)
+        row = prod.check_stage(directory, stage, source_text)
         if row["status"] in TECHNICAL:
-            row = prod.check_stage(directory, stage, source_text, advise_jev=jev)
+            row = prod.check_stage(directory, stage, source_text)
         if row["status"] == "passed":
             if record["failed_versions"]:
                 record.setdefault("history", []).append({"status": "passed"})
             record.update(
                 passed_inputs=_dependencies(directory, stage, row),
                 vision_model=prod.vision_model() if stage == "script" else None,
+                source_text=source_path if stage in ("cast", "script") else None,
                 failed_versions=[],
                 unchanged=0,
                 receipt=_receipt(row),
@@ -491,8 +602,9 @@ def _decide(run: _Run, source_text: Path | None, *, jev: bool, retry: bool) -> d
                 run.set_items(stage, source, items)
             run.save()
             continue
+        errors = _errors(row, _error_log(directory, stage))
         if row["status"] in TECHNICAL:
-            return _escalate(run, stage, f"technical_{row['status']}", _errors(row), None)
+            return _escalate(run, stage, f"technical_{row['status']}", errors, None)
 
         target_stage = _repair_target(stage, row)
         target = prod.stage_path(directory, target_stage)
@@ -508,9 +620,9 @@ def _decide(run: _Run, source_text: Path | None, *, jev: bool, retry: bool) -> d
                 {"stage": target_stage, "status": row["status"], "version": version[:12]}
             )
         if len(record["failed_versions"]) > MAX_EDITS:
-            return _escalate(run, stage, "repair_exhausted", _errors(row), target)
+            return _escalate(run, stage, "repair_exhausted", errors, target)
         if record["unchanged"] >= MAX_UNCHANGED:
-            return _escalate(run, stage, "not_progressing", _errors(row), target)
+            return _escalate(run, stage, "not_progressing", errors, target)
         frozen = _freeze_others(run, stage, target_stage)
         run.save()
         edit = len(record["failed_versions"])
@@ -522,7 +634,7 @@ def _decide(run: _Run, source_text: Path | None, *, jev: bool, retry: bool) -> d
             "skill": STAGES[target_stage].skill,
             "file": str(target),
             "status": row["status"],
-            "errors": _errors(row),
+            "errors": errors,
             "edit": edit,
             "max_edits": MAX_EDITS,
             "frozen": frozen,
@@ -578,11 +690,16 @@ def _decide(run: _Run, source_text: Path | None, *, jev: bool, retry: bool) -> d
     }
 
 
-def record_canvas_sync(directory: Path, receipt: Path) -> dict[str, Any]:
+def record_canvas_sync(directory: Path, receipt: Path, **next_arguments) -> dict[str, Any]:
     """Mark the current storyboard as imported, keyed by its hash."""
     directory = Path(directory).resolve()
     run = _Run(directory)
     recorded = _read_json(receipt, None)
+    try:
+        from .quality_loop import acknowledge_canvas
+    except ImportError:
+        from quality_loop import acknowledge_canvas
+    acknowledge_canvas(directory, recorded)
     run.state["canvas_synced"] = {
         "sha": prod.digest(prod.stage_path(directory, "storyboard")),
         "receipt": recorded,
@@ -603,4 +720,4 @@ def record_canvas_sync(directory: Path, receipt: Path) -> dict[str, Any]:
         ],
     )
     run.save()
-    return next_step(directory, jev=False)
+    return next_step(directory, **next_arguments)

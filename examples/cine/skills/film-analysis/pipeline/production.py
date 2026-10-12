@@ -498,33 +498,6 @@ def adapt_mode(directory):
     return params.get("adaptMode") if isinstance(params, dict) else None
 
 
-def render_attributed_source(directory, attributed):
-    """Write the cast-attributed transcript as the text JEV compares a script against.
-
-    The raw ASR labels can name the wrong character; judging a script against
-    them marks a correctly attributed line unfaithful. Unsettled speakers and
-    non-spoken delivery stay visible in the label.
-    """
-    try:
-        from .line_performance import describe as describe_performance
-    except ImportError:  # Direct CLI execution from the pipeline directory.
-        from line_performance import describe as describe_performance
-
-    lines = ["# Source transcript, speakers resolved against the cast (A/B evidence)."]
-    for row in read(attributed).get("attributions", []):
-        marks = ["speaker unsettled"] if row.get("speaker_needs_review") else []
-        if row.get("delivery") and row.get("delivery") != "spoken":
-            marks.append(str(row["delivery"]))
-        speaker = row.get("speaker_name") or row.get("speaker") or "?"
-        label = f"{speaker} ({', '.join(marks)})" if marks else speaker
-        seen = describe_performance(row.get("performance"))
-        lines.append(f"[{label}] {row.get('text', '')}" + (f"  〔画面：{seen}〕" if seen else ""))
-    target = directory / ".cine-validation" / "jev" / "source-attributed.txt"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    _atomic_bytes(target, ("\n".join(lines) + "\n").encode("utf-8"))
-    return target
-
-
 def script_performance(directory, paths, attributed, jev_model):
     """A faithful script's delivery of each line against the emotion the source frames show."""
     try:
@@ -677,25 +650,40 @@ def init_outline(directory, source, episodes, seconds, genre, adapt_mode):
         not source.strip()
         or not genre.strip()
         or episodes < 1
-        or not math.isfinite(seconds)
-        or seconds <= 0
+        or (seconds is not None and (not math.isfinite(seconds) or seconds <= 0))
     ):
         raise ValueError(
-            "source, genre, positive episodes and finite positive seconds are required"
+            "source, genre and positive episodes are required; seconds, when given, "
+            "must be finite and positive"
         )
     directory.mkdir(parents=True, exist_ok=True)
     path = stage_path(directory, "outline", must_exist=False)
+    try:
+        from .form_gate import seed_forms
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        from form_gate import seed_forms
+    material_path = source_material_path(directory)
+    material = read(material_path) if material_path.is_file() else None
     value = {
         "source": source,
         "lang": "zh",
         "params": {
             "episodes": episodes,
-            "minutesPerEpisode": seconds / 60,
+            # Only a length the user asked for. Without it the script sets the length;
+            # the source runtime is edited and may be sped up, so it is never the target.
+            **({"minutesPerEpisode": seconds / 60} if seconds is not None else {}),
             "genre": genre,
             "adaptMode": adapt_mode,
             "preferences": [],
         },
-        "adaptation": {"core": "", "keep": [], "cut": [], "merge": [], "risks": []},
+        "adaptation": {
+            "core": "",
+            "forms": seed_forms(material),
+            "keep": [],
+            "cut": [],
+            "merge": [],
+            "risks": [],
+        },
         "characters": [],
         "scenes": [],
         "props": [],
@@ -743,6 +731,97 @@ def _seed_source_shots(directory, stage, document):
     return add_source_shots(stage, document, material, outline, rows)
 
 
+def _seed_forms(directory, document):
+    """Put the shooting forms the outline keeps in the seed, the file its writer reads first."""
+    try:
+        from .form_gate import kept_forms
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        from form_gate import kept_forms
+    try:
+        kept = kept_forms(read(stage_path(directory, "outline")))
+    except (OSError, ValueError):
+        return
+    if kept:
+        document["keptForms"] = kept
+
+
+def stage_forms(directory, paths, input_hashes):
+    """The outline keeps or drops, with a reason, every shooting form the source uses."""
+    try:
+        from .form_gate import outline_form_errors
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        from form_gate import outline_form_errors
+    code = Path(__file__).with_name("form_gate.py")
+    input_hashes[str(code)] = fingerprint(code)
+    material_path = source_material_path(directory)
+    input_hashes[str(material_path)] = fingerprint(material_path)
+    material = read(material_path) if material_path.is_file() else None
+    errors = outline_form_errors(read(paths["outline"]), material)
+    return {"status": "failed" if errors else "passed", "blocking": errors}
+
+
+def storyboard_pov(directory, paths, input_hashes, jev_model):
+    """A kept first-person POV never draws its holder's face."""
+    try:
+        from .form_gate import kept_pov_holder
+        from .pov_gate import check_pov
+    except ImportError:  # Direct CLI execution from the pipeline directory.
+        from form_gate import kept_pov_holder
+        from pov_gate import check_pov
+
+    for name in ("form_gate.py", "pov_gate.py", "shot_state_gate.py", "jev_client.py"):
+        code = Path(__file__).with_name(name)
+        input_hashes[str(code)] = fingerprint(code)
+    holder = kept_pov_holder(read(paths["outline"])) if "outline" in paths else None
+    if not holder:
+        return {"status": "skipped", "reason": "no kept POV form"}
+    names = {c.get("id"): c.get("name") for c in read(paths["cast"]).get("characters") or []}
+    try:
+        return check_pov(
+            read(paths["storyboard"]),
+            holder,
+            holder_name=names.get(holder),
+            model=jev_model,
+            cache_dir=directory / ".cine-validation" / "pov",
+        )
+    except Exception as exc:  # noqa: BLE001 - a broken check is a review item, not a verdict
+        return {"status": "unavailable", "error": f"{type(exc).__name__}: {exc}"}
+
+
+# The style presets cine-characters and cine-art accept; ``realistic`` is the old name of
+# ``semi-realistic`` (deprecated, remove with the skills' alias in 0.14.0).
+STYLE_PRESETS = ("photoreal", "semi-realistic", "ghibli")
+STYLE_ALIASES = {"realistic": "semi-realistic"}
+
+
+def seed_style(directory, stage):
+    """The preset a cast or art seed starts from, and where that choice came from.
+
+    Art follows the cast so the two references match; otherwise the user's outline choice
+    wins, then the source film's own medium. ``None`` leaves the skill's default.
+    """
+
+    def preset(value):
+        value = STYLE_ALIASES.get(value, value)
+        return value if value in STYLE_PRESETS else None
+
+    if stage == "art":
+        cast_path = stage_path(directory, "cast", must_exist=False)
+        if cast_path.is_file() and (style := preset(read(cast_path).get("style"))):
+            return style, "cast"
+    outline_path = stage_path(directory, "outline", must_exist=False)
+    if outline_path.is_file():
+        params = read(outline_path).get("params") or {}
+        if style := preset(params.get("style")):
+            return style, "outline"
+    material_path = source_material_path(directory)
+    if material_path.is_file():
+        reading = read(material_path).get("visual_style") or {}
+        if style := preset(reading.get("style")):
+            return style, "source"
+    return None, None
+
+
 def seed(directory, stage, timeout=30, *, replace_empty=False):
     if stage == "outline":
         raise ValueError("use init for the initial outline")
@@ -771,10 +850,21 @@ def seed(directory, stage, timeout=30, *, replace_empty=False):
         raise ValueError("node is unavailable; no substitute seeder was run")
     tool = script_path(stage)
     hashes = {
-        str(p): fingerprint(p) for p in (path, tool, *SHARED_SCRIPTS, directory / "production.json")
+        str(p): fingerprint(p)
+        for p in (path, tool, *SHARED_SCRIPTS, directory / "production.json")
     }
     hashes[str(manifest)] = binding_hash
     command = [node, str(tool), "seed", str(path)]
+    style, style_from = seed_style(directory, stage) if stage in ("cast", "art") else (None, None)
+    if style:
+        command.extend(["--style", style])
+        for name in ("cast", "outline"):
+            chosen = stage_path(directory, name, must_exist=False)
+            if chosen.is_file():
+                hashes[str(chosen)] = fingerprint(chosen)
+        material_path = source_material_path(directory)
+        if material_path.is_file():
+            hashes[str(material_path)] = fingerprint(material_path)
     if stage == "storyboard":
         bindings = read(manifest).get("artifacts", {}) if manifest.is_file() else None
         for reference in ("cast", "art"):
@@ -801,6 +891,7 @@ def seed(directory, stage, timeout=30, *, replace_empty=False):
         raise ValueError("invalid native seed output: " + "; ".join(problems))
     if stage in ("script", "storyboard"):
         _seed_source_shots(directory, stage, document)
+        _seed_forms(directory, document)
     if any(fingerprint(Path(p)) != h for p, h in hashes.items()):
         raise ValueError("upstream changed during seeding; retry after edits settle")
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -814,6 +905,7 @@ def seed(directory, stage, timeout=30, *, replace_empty=False):
         "validated": False,
         "command": command,
         "input_hashes": hashes,
+        **({"style": style, "style_from": style_from} if style else {}),
     }
 
 
@@ -823,8 +915,6 @@ def check_stage(
     source_text=None,
     timeout=30,
     *,
-    require_jev=False,
-    advise_jev=False,
     jev_model="jev-latest",
 ):
     tool = script_path(stage)
@@ -848,12 +938,19 @@ def check_stage(
         binding_hash = fingerprint(manifest)
         paths = {key: stage_path(directory, key) for key in (stage, *inputs)}
         files = [*paths.values(), directory / "production.json"]
-        if stage == "cast" and source_text is not None:
+        if stage in ("cast", "script") and source_text is not None:
+            source_text = Path(source_text)
             files.append(source_text)
         row["input_hashes"] = {str(p): fingerprint(p) for p in files}
         row["input_hashes"][str(manifest)] = binding_hash
         row["input_hashes"].update({str(p): fingerprint(p) for p in SHARED_SCRIPTS})
         row["validator_sha256"] = digest(tool)
+        if (
+            stage in ("cast", "script")
+            and source_text is not None
+            and not read_text(source_text).strip()
+        ):
+            raise ValueError(f"--source-text is empty: {source_text}")
         problems = []
         for key in (stage, *inputs):
             try:
@@ -880,21 +977,25 @@ def check_stage(
             command.append(str(source_text))
         for key in inputs:
             command.extend([f"--{key}", str(paths[key])])
-        jev_source = ("source_text", source_text) if source_text is not None else (None, None)
+        script_source = None
         free_adaptation = stage == "script" and adapt_mode(directory) in FREE_ADAPT_MODES
         if free_adaptation:
             # 借壳 keeps the premise and rewrites the rest: the source's speakers,
             # order and lines are not what this script is meant to reproduce.
-            jev_source = (None, None)
-            row["source_comparison"] = "skipped: free adaptation"
+            row["source_comparison"] = {
+                "status": "skipped",
+                "reason": "free_adaptation",
+                "scope": "source_dialogue",
+                "source_text": str(source_text) if source_text is not None else None,
+            }
         if stage == "script" and not free_adaptation:
             # The attributed transcript is what lets the script validator check
             # line order and speaker against the original instead of judging the
             # document only on its own internal coherence.
             attributed = directory / "source-transcript-attributed.json"
-            rows_path = next(
-                (p for p in source_transcript_candidates(directory) if p.is_file()), None
-            )
+            candidates = source_transcript_candidates(directory)
+            row["input_hashes"].update({str(p): fingerprint(p) for p in (*candidates, attributed)})
+            rows_path = next((p for p in candidates if p.is_file()), None)
             if rows_path is not None:
                 # Checked on every run, before a cached attribution can be
                 # reused: a transcript of another film must never reach the
@@ -937,15 +1038,50 @@ def check_stage(
                         return row
                 row["input_hashes"][str(rows_path)] = expected_hashes["source_transcript"]
                 command.extend(["--source", str(attributed)])
-                jev_source = ("attributed", attributed)
+                script_source = attributed
                 files.append(attributed)
                 row["input_hashes"][str(attributed)] = fingerprint(attributed)
+                row["source_comparison"] = {
+                    "status": "unchecked",
+                    "reason": "native_check_not_completed",
+                    "scope": "source_dialogue",
+                    "source_text": str(source_text) if source_text is not None else None,
+                    "source_transcript": str(attributed),
+                    "transcript_identity": identity,
+                    "message": "剧本原稿对账尚未完成：原生校验器还没有返回结果。",
+                }
             elif attributed.is_file():
                 row.update(
                     status="attribution_error",
                     stderr="source transcript for attribution is missing",
                 )
                 return row
+            elif (
+                source_text is None
+                and manifest.is_file()
+                and read(manifest).get("mode") == "original"
+            ):
+                row["source_comparison"] = {
+                    "status": "skipped",
+                    "reason": "original_without_source",
+                    "scope": "source_dialogue",
+                    "source_text": None,
+                }
+            else:
+                row["source_comparison"] = {
+                    "status": "unchecked",
+                    "reason": "plain_text_requires_attributed_transcript"
+                    if source_text is not None
+                    else "missing_source_transcript",
+                    "scope": "source_dialogue",
+                    "source_text": str(source_text) if source_text is not None else None,
+                    "message": (
+                        "剧本原稿对账未检查：没有可用的角色归属转录 JSON。"
+                        "纯文本不能核验说话人、台词顺序和台词保留；"
+                        "请提供与绑定源片一致的 source-transcript.json 后重新归属、校验，"
+                        "或人工核对纯文本原稿。"
+                    ),
+                }
         if stage == "storyboard":
             # A production ends on the canvas, where a video card references only the
             # character sheets and the scene art: the prompt must define and use each one.
@@ -966,7 +1102,12 @@ def check_stage(
             stderr=result.stderr,
             status="passed" if result.returncode == 0 else "failed",
         )
-        if stage == "script" and adapt_mode(directory) == "抽核" and jev_source[0] == "attributed":
+        if script_source is not None:
+            comparison = row["source_comparison"]
+            comparison.update(status="checked", native_exit_code=result.returncode)
+            comparison.pop("reason")
+            comparison.pop("message")
+        if stage == "script" and adapt_mode(directory) == "抽核" and script_source is not None:
             reviewed = subprocess.run(
                 [*command[:2], "source-review", *command[3:]],
                 cwd=directory,
@@ -984,7 +1125,13 @@ def check_stage(
             row["locations"] = stage_locations(directory, stage, paths, row["input_hashes"])
             if row["locations"]["status"] == "failed":
                 row.update(status="failed", errors=row["locations"]["blocking"])
-        if stage == "script" and jev_source[0] == "attributed":
+        if stage == "outline" and source_material_path(directory).is_file():
+            row["forms"] = stage_forms(directory, paths, row["input_hashes"])
+            if row["forms"]["status"] == "failed":
+                row.update(
+                    status="failed", errors=[*row.get("errors", []), *row["forms"]["blocking"]]
+                )
+        if stage == "script" and script_source is not None:
             try:
                 from .people_gate import check_people
             except ImportError:
@@ -996,6 +1143,7 @@ def check_stage(
             row["input_hashes"][str(person_map_file)] = fingerprint(person_map_file)
             for name in (
                 "people_gate.py",
+                "form_gate.py",
                 "speaker_evidence.py",
                 "person_map.py",
                 "line_judgment.py",
@@ -1011,7 +1159,7 @@ def check_stage(
                 material,
                 read(paths["cast"]),
                 mapping,
-                read(jev_source[1]).get("attributions") or [],
+                read(script_source).get("attributions") or [],
             )
             if row["people"]["status"] == "failed":
                 row.update(
@@ -1031,44 +1179,23 @@ def check_stage(
                     status="failed",
                     errors=[*row.get("errors", []), *row["shot_states"]["blocking"]],
                 )
+            row["pov"] = storyboard_pov(directory, paths, row["input_hashes"], jev_model)
+            if row["pov"]["status"] == "failed":
+                row.update(
+                    status="failed", errors=[*row.get("errors", []), *row["pov"]["blocking"]]
+                )
         if (
             stage == "script"
             and row["status"] == "passed"
-            and jev_source[0] == "attributed"
+            and script_source is not None
             and adapt_mode(directory) == "忠实"
         ):
-            row["performance"] = script_performance(directory, paths, jev_source[1], jev_model)
+            row["performance"] = script_performance(directory, paths, script_source, jev_model)
             if row["performance"]["status"] == "failed":
                 row.update(
                     status="failed",
                     errors=[*row.get("errors", []), *row["performance"]["blocking"]],
                 )
-        if row["status"] == "passed" and (require_jev or advise_jev):
-            try:
-                from .jev_gates import run_stage_gate, write_receipt
-            except ImportError:  # Direct CLI execution from the pipeline directory.
-                from jev_gates import run_stage_gate, write_receipt
-            kind, baseline = jev_source
-            if kind == "attributed":
-                # Judge against the same cast-resolved speakers the native validator uses.
-                baseline = render_attributed_source(directory, baseline)
-            jev_paths = dict(paths)
-            for name in stage_graph.STAGES[stage].jev_context:
-                context = stage_path(directory, name, must_exist=False)
-                if context.is_file():
-                    jev_paths.setdefault(name, context)
-            receipt = run_stage_gate(stage, jev_paths, model=jev_model, source_text=baseline)
-            receipt["source_baseline"] = {
-                "kind": kind,
-                "path": str(baseline) if baseline is not None else None,
-                "supplied_source_text": str(source_text) if source_text is not None else None,
-            }
-            receipt["receipt_path"] = str(write_receipt(directory, receipt))
-            row["jev"] = receipt
-            row["next_action"] = (receipt.get("scheduler") or {}).get("next_action")
-            # Advisory JEV only reports; the native validator alone decides the stage status.
-            if receipt["status"] != "passed" and require_jev:
-                row["status"] = f"jev_{receipt['status']}"
         if (
             any(fingerprint(Path(p)) != h for p, h in row["input_hashes"].items())
             or digest(tool) != row["validator_sha256"]
@@ -1095,8 +1222,6 @@ def check(
     source_text=None,
     timeout=30,
     *,
-    require_jev=False,
-    advise_jev=False,
     jev_model="jev-latest",
 ):
     report_dir = directory / ".cine-validation"
@@ -1110,8 +1235,6 @@ def check(
             s,
             source_text,
             timeout,
-            require_jev=require_jev,
-            advise_jev=advise_jev,
             jev_model=jev_model,
         )
         for s in stages
@@ -1127,8 +1250,6 @@ def check(
                 row["status"] = "inputs_changed"
     passed = all(r["status"] == "passed" for r in rows)
     skipped = any(r["skipped_checks"] for r in rows)
-    jev_ran = require_jev or advise_jev
-    jev_all_passed = all(row.get("jev", {}).get("status") == "passed" for row in rows)
     report = {
         "schema_version": 1,
         "run_id": uuid.uuid4().hex,
@@ -1140,20 +1261,12 @@ def check(
         else "failed",
         "stages": rows,
         "production_authorized": False,
-        "jev_required": require_jev,
-        "jev_mode": "required" if require_jev else "advisory" if advise_jev else "off",
-        # "advisory_findings": JEV ran without blocking and some stage did not pass it;
-        # the stage rows carry each receipt for the report.
-        "jev_status": (
-            "passed"
-            if jev_ran and jev_all_passed
-            else "failed"
-            if require_jev
-            else "advisory_findings"
-            if advise_jev
-            else "not_required"
-        ),
         "unverified": [
+            *(
+                ["source_dialogue"]
+                if any(r.get("source_comparison", {}).get("status") == "unchecked" for r in rows)
+                else []
+            ),
             "source_readiness",
             "upstream_pins",
             "adaptation_quality",
@@ -1174,8 +1287,6 @@ def finalize(
     source_text=None,
     timeout=30,
     *,
-    require_jev=False,
-    advise_jev=False,
     jev_model="jev-latest",
 ):
     """Revalidate native artifacts, refresh the manifest graph, then hand off."""
@@ -1184,8 +1295,6 @@ def finalize(
         "all",
         source_text,
         timeout,
-        require_jev=require_jev,
-        advise_jev=advise_jev,
         jev_model=jev_model,
     )
     if report["status"] != "native_validated":
@@ -1230,7 +1339,12 @@ def main(argv=None):
     init.add_argument("directory", type=Path)
     init.add_argument("--source", required=True)
     init.add_argument("--episodes", type=int, required=True)
-    init.add_argument("--seconds", type=float, required=True)
+    init.add_argument(
+        "--seconds",
+        type=float,
+        default=None,
+        help="Episode length the user asked for; omit it to let the script set the length.",
+    )
     init.add_argument("--genre", required=True)
     init.add_argument("--adapt-mode", choices=["忠实", "抽核", "借壳"], required=True)
     attribute = sub.add_parser(
@@ -1256,19 +1370,6 @@ def main(argv=None):
             )
         if action == "check":
             parser.add_argument("--source-text", type=Path)
-            parser.add_argument(
-                "--jev-advisory",
-                action="store_true",
-                help=(
-                    "Run the TypeSafe JEV semantic review and report it "
-                    "without blocking any stage."
-                ),
-            )
-            parser.add_argument(
-                "--require-jev",
-                action="store_true",
-                help="Require a passing TypeSafe JEV semantic gate for every checked stage.",
-            )
             parser.add_argument("--jev-model", default="jev-latest")
     rebind = sub.add_parser(
         "rebind-source",
@@ -1282,7 +1383,6 @@ def main(argv=None):
     )
     step.add_argument("directory", type=Path)
     step.add_argument("--source-text", type=Path)
-    step.add_argument("--no-jev", action="store_true", help="Skip the advisory JEV review.")
     step.add_argument(
         "--retry", action="store_true", help="Clear escalations after the cause was fixed."
     )
@@ -1297,19 +1397,24 @@ def main(argv=None):
         action="store_true",
         help="The user wants the text files only: finish with done instead of a canvas import.",
     )
+    step.add_argument(
+        "--generation-plan",
+        type=Path,
+        help="Continue into media generation using an explicitly authorized bounded plan.",
+    )
+    step.add_argument(
+        "--generation-receipt",
+        type=Path,
+        help="Record {action_id, result} from the exact requested generation tool action.",
+    )
+    step.add_argument(
+        "--assemble-media",
+        action="store_true",
+        help="Assemble the exported video items requested by the current generation plan.",
+    )
     final = sub.add_parser("finalize")
     final.add_argument("directory", type=Path)
     final.add_argument("--source-text", type=Path)
-    final.add_argument(
-        "--jev-advisory",
-        action="store_true",
-        help="Run the TypeSafe JEV semantic review and report it without blocking finalization.",
-    )
-    final.add_argument(
-        "--require-jev",
-        action="store_true",
-        help="Require a passing TypeSafe JEV semantic gate before refreshing pins.",
-    )
     final.add_argument("--jev-model", default="jev-latest")
     args = p.parse_args(argv)
     try:
@@ -1329,31 +1434,35 @@ def main(argv=None):
                 from . import autopilot
             except ImportError:  # Direct CLI execution from the pipeline directory.
                 import autopilot
+            next_arguments = {
+                "source_text": args.source_text.resolve() if args.source_text else None,
+                "retry": args.retry,
+                "text_only": args.text_only,
+                "generation_plan": args.generation_plan.resolve()
+                if args.generation_plan
+                else None,
+                "generation_receipt": args.generation_receipt.resolve()
+                if args.generation_receipt
+                else None,
+                "assemble_media": args.assemble_media,
+            }
             if args.canvas_synced:
-                result = autopilot.record_canvas_sync(directory, args.canvas_synced.resolve())
-            else:
-                result = autopilot.next_step(
-                    directory,
-                    source_text=args.source_text.resolve() if args.source_text else None,
-                    jev=not args.no_jev,
-                    retry=args.retry,
-                    text_only=args.text_only,
+                result = autopilot.record_canvas_sync(
+                    directory, args.canvas_synced.resolve(), **next_arguments
                 )
+            else:
+                result = autopilot.next_step(directory, **next_arguments)
         elif args.action == "check":
             result = check(
                 directory,
                 args.stage,
                 args.source_text.resolve() if args.source_text else None,
-                require_jev=args.require_jev,
-                advise_jev=args.jev_advisory,
                 jev_model=args.jev_model,
             )
         else:
             result = finalize(
                 directory,
                 args.source_text.resolve() if args.source_text else None,
-                require_jev=args.require_jev,
-                advise_jev=args.jev_advisory,
                 jev_model=args.jev_model,
             )
         print(json.dumps(result, ensure_ascii=False))

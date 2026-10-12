@@ -368,6 +368,11 @@ class ToolManager:
             from agentnexus.tools.builtins.upload_file import UploadFileTool
 
             return UploadFileTool()
+        if name == "save_teammate_memory":
+            from agentnexus.runtime.teammate_memory import memory_policy
+            from agentnexus.tools.builtins.teammate_memory import SaveTeammateMemoryTool
+
+            return SaveTeammateMemoryTool(policy=memory_policy(self._spec))
         return get_builtin_tool(name, config=config)
 
     def _create_web_search(self, config: dict[str, str] | None) -> Tool:
@@ -566,11 +571,14 @@ class ToolManager:
         Framework-owned and always available so any bot can dispatch tasks
         or send peer messages to other teammate bots in the workspace.
         """
+        from agentnexus.runtime.teammate_memory import memory_policy
         from agentnexus.tools.builtins.send_to_teammate import SendToTeammateTool
         from agentnexus.tools.builtins.teammate_memory import SaveTeammateMemoryTool
 
         self._tools[SendToTeammateTool.name()] = SendToTeammateTool()
-        self._tools[SaveTeammateMemoryTool.name()] = SaveTeammateMemoryTool()
+        self._tools[SaveTeammateMemoryTool.name()] = SaveTeammateMemoryTool(
+            policy=memory_policy(self._spec)
+        )
 
     def _register_browser_tools(self) -> None:
         """

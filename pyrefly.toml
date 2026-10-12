@@ -47,6 +47,8 @@ ignore-missing-imports = [
     "agentnexus.onboarding.internal_beta",
     "openshell",
     "openshell.*",
+    "scenedetect",
+    "scenedetect.*",
 ]
 
 ignore-errors-in-generated-code = true

@@ -13,9 +13,6 @@ class Stage(NamedTuple):
     skill: str
     # Documents its native validator cross-checks, in CLI flag order.
     validator_inputs: tuple[str, ...] = ()
-    # Further documents its JEV review reads; a character needs a non-default
-    # state because of the story, so the cast is judged against the outline.
-    jev_context: tuple[str, ...] = ()
     # Document its native seed starts from.
     seed_from: str | None = None
 
@@ -23,7 +20,7 @@ class Stage(NamedTuple):
 # Execution order: every document a stage reads comes before it.
 STAGES = {
     "outline": Stage("cine-outline"),
-    "cast": Stage("cine-characters", jev_context=("outline",), seed_from="outline"),
+    "cast": Stage("cine-characters", seed_from="outline"),
     "art": Stage("cine-art", ("cast",), seed_from="outline"),
     "script": Stage("cine-script", ("outline", "art", "cast"), seed_from="outline"),
     "storyboard": Stage("cine-storyboard", ("script", "outline", "cast", "art"), seed_from="script"),
@@ -60,12 +57,6 @@ def next_stage(stage: str) -> str:
     """The stage that follows ``stage``; the canvas follows the storyboard."""
     position = ORDER.index(stage) + 1
     return ORDER[position] if position < len(ORDER) else CANVAS
-
-
-def repair_upstreams(stage: str) -> tuple[str, ...]:
-    """Earlier documents a defect found at ``stage`` may be repaired in."""
-    reads = {*STAGES[stage].validator_inputs, *STAGES[stage].jev_context}
-    return tuple(name for name in ORDER if name in reads)
 
 
 def validation_scope(stage: str) -> tuple[str, ...]:

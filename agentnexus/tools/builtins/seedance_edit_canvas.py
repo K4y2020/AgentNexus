@@ -49,6 +49,7 @@ class SeedanceEditCanvasTool(Tool):
                                 "initialize",
                                 "import_storyboard",
                                 "export_image",
+                                "export_video",
                                 "validate_generation",
                                 "create_node",
                                 "update_node",
@@ -71,16 +72,16 @@ class SeedanceEditCanvasTool(Tool):
                         },
                         "job_id": {
                             "type": "string",
-                            "description": "For export_image: exact succeeded V3 image or video job ID. Downloads its output into this Topic; no generation or filesystem search.",
+                            "description": "For export_image/export_video: exact succeeded V3 image or video job ID. Downloads its output into this Topic; no generation or filesystem search.",
                         },
                         "output_path": {
                             "type": "string",
-                            "description": "For export_image: optional destination inside this Topic. Existing different files are not overwritten. Default outputs/v3-media/<hash>.<actual-format>.",
+                            "description": "For export_image/export_video: optional destination inside this Topic. Existing different files are not overwritten. Default outputs/v3-media/<hash>.<actual-format>.",
                         },
                         "output_index": {
                             "type": "integer",
                             "minimum": 0,
-                            "description": "For export_image: zero-based index in the job's outputRefs, default 0.",
+                            "description": "For export_image/export_video: zero-based index in the job's outputRefs, default 0.",
                         },
                         "script_file": {
                             "type": "string",
@@ -188,6 +189,19 @@ class SeedanceEditCanvasTool(Tool):
                             "type": "string",
                             "enum": ["image", "video"],
                             "description": "Kind for submit_generation and validate_generation. If omitted, cast/art and storyboard frame pointers imply image; otherwise video. Use image for character sheets.",
+                        },
+                        "expected_continuation_job_id": {
+                            "type": "string",
+                            "description": "For continuation video validate_generation/submit_generation: exact succeeded preceding job selected by the production plan. Its current last-frame slot, source video and resolved reference must match before submission.",
+                        },
+                        "sync_prompt": {
+                            "type": "boolean",
+                            "description": "For validate_generation only when the production controller requests it: first write the checked artifact prompt to this bound node. Refused if the node's prompt was edited on the canvas.",
+                        },
+                        "generation_request_id": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                            "description": "Stable identity for an authorized submit_generation. Always supply for unattended runs. Reuse exactly the same ID and inputs after a timeout or restart; changed inputs under the same ID are rejected. A deliberate new generation needs a new ID only after the earlier outcome is known.",
                         },
                         "generation_allowed": {
                             "type": "boolean",

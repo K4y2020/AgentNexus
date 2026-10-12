@@ -29,7 +29,7 @@
 
 ## 提供商与出图范围
 
-`export` 仅为 H3 输出 `<段号>/prompt.md` 和 Picture 清单；Seedance 或其他不支持的提供商导出明确 blocked。允许结构化分镜草稿，不编造假的 `h3Prompt` 来过 H3 门。2–5 秒是短剧默认切长，可用现有 `params.minCutSeconds` / `params.maxCutSeconds` 调整，不是通用电影节奏。
+`export` 仅为 H3 输出 `<段号>/prompt.md` 和 Picture 清单；Seedance 或其他不支持的提供商导出明确 blocked。允许结构化分镜草稿，不编造假的 `h3Prompt` 来过 H3 门。单镜时长按内容与拍摄形式确定，默认上限跟随生成段能力；生成段边界不自动成为剪辑切点。
 
 每切目标路径为 `<段号>/f<切序>.png`。取得明确生成授权后，先做已约定的小样范围再评审；授权不覆盖重试时不自动重生成。提示词要求单帧干净画面，无文字、水印或分格边框。
 

@@ -5,24 +5,37 @@
 
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, readJson, runCli, safeStem, thText } from '../../_shared/cine-common.mjs';
+import { canonicalStyle, embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, mediumAudit, readJson, runCli, safeStem, thText } from '../../_shared/cine-common.mjs';
 
 /* ------------------------------------------------------------------ */
 /* 画风预设（环境版）                                                    */
 /* ------------------------------------------------------------------ */
 /*
- * 与 cine-characters 的两档画风同名对齐（realistic / ghibli），
+ * 与 cine-characters 的三档画风同名对齐（photoreal / semi-realistic / ghibli），
  * 但内容是环境的表面处理，不是皮肤毛孔——把角色那套带进环境是错的。
  * 换风格是整套换：render / surface / negative / tags 整块取用，不混搭。
+ * 默认跟原片一致：production seed 用 --style 传入人物卡或原片的画风。
  *
- * 最容易踩的坑与角色 skill 相同：realistic 绝不能禁 photorealistic，
- * ghibli 必须禁。validate 会拦。
+ * 最容易踩的坑与角色 skill 相同：photoreal / semi-realistic 绝不能禁
+ * photorealistic，ghibli 必须禁；photoreal 还必须禁 painterly。validate 会拦。
  */
 
-export const DEFAULT_STYLE = 'realistic';
+export const DEFAULT_STYLE = 'semi-realistic';
 
 export const SCENE_STYLE_PRESETS = {
-  realistic: {
+  photoreal: {
+    label: '写实',
+    render:
+      'Photorealistic live-action location reference, shot on a cinema camera with true-to-life materials and practical light, grounded architectural perspective, cinematic depth',
+    surface:
+      'Real, lived-in materials as they are: paint, plaster, wood grain, metal and fabric with their true texture and wear; light from practical sources falls off naturally; walls and flat surfaces stay clean and smooth with no grain, mottling or digital noise, and enough ambient fill that shadowed surfaces remain readable',
+    // 写实要禁绘画感和噪点，但绝不能禁 photorealistic
+    negative:
+      'people, human figures, characters, crowds, silhouettes of people, painterly, brush strokes, illustration, concept-art look, plastic CG look, oversaturated colours, crushed black shadows, film grain, digital noise, warped perspective, melted geometry, floating objects, text, watermark, signature',
+    tags: ['photoreal', 'live-action', 'location reference', 'practical light', 'clean surfaces'],
+  },
+
+  'semi-realistic': {
     label: '半写实厚涂',
     render:
       'Semi-realistic environment concept art, painterly rendering with visible brush texture, grounded architectural perspective, cinematic depth',
@@ -48,7 +61,8 @@ export const SCENE_STYLE_PRESETS = {
 };
 
 export const SUPPORTED_STYLES = Object.keys(SCENE_STYLE_PRESETS);
-export const scenePreset = (id) => SCENE_STYLE_PRESETS[id] ?? SCENE_STYLE_PRESETS[DEFAULT_STYLE];
+export const isStyle = (id) => SUPPORTED_STYLES.includes(canonicalStyle(id));
+export const scenePreset = (id) => SCENE_STYLE_PRESETS[canonicalStyle(id)] ?? SCENE_STYLE_PRESETS[DEFAULT_STYLE];
 
 /* ------------------------------------------------------------------ */
 /* slug                                                                */
@@ -67,7 +81,7 @@ export function slug(name) {
  * 模型只填设计字段（设计意图 / 锚点 / 光照 / 提示词）。
  */
 
-export function seedFromOutline(outline) {
+export function seedFromOutline(outline, { style = DEFAULT_STYLE } = {}) {
   const eps = Array.isArray(outline?.episodes) ? outline.episodes : [];
   const beats = Array.isArray(outline?.beats) ? outline.beats : [];
 
@@ -114,7 +128,7 @@ export function seedFromOutline(outline) {
     };
   });
 
-  return { source: outline?.source ?? '', style: DEFAULT_STYLE, scenes, props };
+  return { source: outline?.source ?? '', style: canonicalStyle(style), scenes, props };
 }
 
 /* ------------------------------------------------------------------ */
@@ -155,7 +169,7 @@ export function gateReport(doc, castNames = null) {
     states: [], scale: [], hands: [], whitebg: [],
   };
   const ids = new Set(scenes.map((s) => s?.id));
-  const style = doc?.style ?? DEFAULT_STYLE;
+  const style = canonicalStyle(doc?.style ?? DEFAULT_STYLE);
   const preset = scenePreset(style);
 
   // 场景与道具共用的门：锚点 / 空景 / 英文 / 角色名 / 风格匹配
@@ -205,8 +219,9 @@ export function gateReport(doc, castNames = null) {
 
     // 风格与反向词匹配 + sheet 带渲染句
     const bansRealism = /photorealistic|3d render/i.test(neg);
-    if (style === 'realistic' && bansRealism) bad.style.push(`${label} 禁了 photorealistic`);
+    if (style !== 'ghibli' && bansRealism) bad.style.push(`${label} 禁了 photorealistic`);
     if (style === 'ghibli' && !bansRealism) bad.style.push(`${label} 没禁 photorealistic`);
+    if (style === 'photoreal' && !/\bpainterly\b|\bbrush[ -]?strokes?\b/i.test(neg)) bad.style.push(`${label} 没禁 painterly`);
     if (thText(s?.image?.sheet) && !s.image.sheet.includes(preset.render)) bad.style.push(`${label} 的 sheet 缺渲染句`);
   }
 
@@ -256,13 +271,13 @@ export function gateReport(doc, castNames = null) {
 /* validate                                                            */
 /* ------------------------------------------------------------------ */
 
-export function validateArt(doc, castNames = null) {
+export function validateArt(doc, castNames = null, cast = null) {
   const problems = [];
   const p = (msg) => problems.push(msg);
   if (!doc || typeof doc !== 'object') return ['art.json 不是对象'];
 
   if (!thText(doc.source)) p('缺少 source（剧名/书名）');
-  if (!SUPPORTED_STYLES.includes(doc.style)) p(`style 必须是 ${SUPPORTED_STYLES.join('/')}，实际是 ${JSON.stringify(doc.style)}`);
+  if (!isStyle(doc.style)) p(`style 必须是 ${SUPPORTED_STYLES.join('/')}，实际是 ${JSON.stringify(doc.style)}`);
 
   const scenes = doc.scenes;
   if (!Array.isArray(scenes) || scenes.length === 0) {
@@ -339,6 +354,23 @@ export function validateArt(doc, castNames = null) {
     if (s?.usage !== undefined) {
       if (!Array.isArray(s.usage?.episodes)) p(`[${label}] usage.episodes 必须是数组`);
       if (!Array.isArray(s.usage?.beats)) p(`[${label}] usage.beats 必须是数组`);
+    }
+  }
+
+  // 每张参考图只能有一种媒介，并与角色参考图一致：分镜按媒介对照两者。
+  const imageText = (img) => [img?.prompt, img?.sheet].filter(Boolean).join(' ');
+  const art = mediumAudit([...scenes, ...(doc.props ?? [])].filter((x) => x?.image)
+    .map((x) => ({ label: x.name ?? x.id ?? '(无名)', text: imageText(x.image) })));
+  if (art.mixed.length) {
+    p(`参考图提示词同时写了几种媒介：${art.mixed.join('；')}。画面里的物件和构图比喻不要用 photograph/anime/cartoon 这类媒介词`);
+  }
+  if (art.media.length > 1) p(`场景/道具参考图媒介不一致：${art.media.join(' / ')}`);
+  const castChars = Array.isArray(cast) ? cast : cast?.characters;
+  if (castChars && art.media.length === 1) {
+    const castMedia = mediumAudit(castChars.flatMap((c) => [c?.image, ...(c?.states ?? []).map((st) => st?.image)])
+      .filter(Boolean).map((img) => ({ label: '', text: imageText(img) }))).media;
+    if (castMedia.length === 1 && castMedia[0] !== art.media[0]) {
+      p(`场景/道具参考图媒介（${art.media[0]}）与角色参考图（${castMedia[0]}）不一致`);
     }
   }
 
@@ -452,7 +484,7 @@ const I18N = {
     langCode: 'en',
     kicker: 'Art Bible',
     docTitle: (s) => `${s} · Art Bible`,
-    styleLine: (id) => `Style: ${({ realistic: 'semi-realistic painterly', ghibli: 'Ghibli-style animation' })[id] ?? id}`,
+    styleLine: (id) => `Style: ${({ photoreal: 'photoreal live-action', 'semi-realistic': 'semi-realistic painterly', ghibli: 'Ghibli-style animation' })[canonicalStyle(id)] ?? id}`,
     exportJson: 'Export JSON',
     gates: 'Quality gates',
     gatesPass: 'All passed',
@@ -963,7 +995,7 @@ document.querySelector('.expo').addEventListener('click', (e) => {
 
 const USAGE = `cine-art.mjs — cine-art skill 的确定性工具（场景 + 道具）
 
-  seed <outline.json>                    从大纲预填 art.json 骨架（打印到 stdout，道具留空待提取）
+  seed <outline.json> [--style]          从大纲预填 art.json 骨架（打印到 stdout，道具留空待提取）
   validate <art.json> [--cast c.json]    校验；有违规逐条打印并 exit 1
                                          给了 cast.json 才查「提示词不含角色名」
   checkup <art.json> [--cast c.json]     只打印质量门 ✓/✗，有未过项 exit 1
@@ -987,8 +1019,10 @@ function main(argv) {
 
   if (cmd === 'seed') {
     const [path] = rest;
-    if (!path) throw new Error('用法：seed <outline.json>');
-    console.log(JSON.stringify(seedFromOutline(readJson(path)), null, 2));
+    if (!path) throw new Error('用法：seed <outline.json> [--style photoreal|semi-realistic|ghibli]');
+    const style = flag(rest, '--style', DEFAULT_STYLE);
+    if (!isStyle(style)) throw new Error(`未知风格 ${style}（可用：${SUPPORTED_STYLES.join('/')}）`);
+    console.log(JSON.stringify(seedFromOutline(readJson(path), { style }), null, 2));
     return;
   }
 
@@ -997,7 +1031,8 @@ function main(argv) {
     if (!path) throw new Error(`用法：${cmd} <art.json> [--cast cast.json]`);
     const doc = readJson(path);
     const castPath = flag(rest, '--cast');
-    const names = castPath ? castNamesOf(readJson(castPath)) : null;
+    const cast = castPath ? readJson(castPath) : null;
+    const names = cast ? castNamesOf(cast) : null;
     if (!castPath) console.error('⚠️ 没给 --cast，跳过「提示词不含角色名」检查');
 
     if (cmd === 'checkup') {
@@ -1009,7 +1044,7 @@ function main(argv) {
       return;
     }
 
-    const problems = validateArt(doc, names);
+    const problems = validateArt(doc, names, cast);
     if (problems.length) {
       console.error(`✗ ${problems.length} 处违规：\n`);
       for (const x of problems) console.error('  ' + x);

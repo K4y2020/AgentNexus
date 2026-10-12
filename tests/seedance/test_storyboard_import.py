@@ -1,4 +1,5 @@
 import hashlib
+import itertools
 import json
 from unittest.mock import AsyncMock
 
@@ -280,15 +281,19 @@ def _write_production(directory, **documents):
 
 
 def _canvas(nodes, edges=None, revision=None):
-    """AsyncMock V3 client whose snapshots reflect the nodes and edges it has been sent."""
-    state = {"nodes": list(nodes), "edges": list(edges or [])}
+    """AsyncMock V3 client whose snapshots reflect the nodes and edges it has been sent.
+
+    ``state["outputs"]`` maps a node id to its output URL, reported as V3's node_media.
+    """
+    state = {"nodes": list(nodes), "edges": list(edges or []), "outputs": {}}
+    new_ids = itertools.count(len(state["nodes"]) + 1)
     v3 = AsyncMock()
 
     async def submit(project_id, cmd):
         if cmd.get("type") == "canvas.create_node":
             state["nodes"].append(
                 {
-                    "id": f"node_{len(state['nodes']) + 1}",
+                    "id": f"node_{next(new_ids)}",
                     "type": cmd.get("nodeType"),
                     "title": cmd.get("title"),
                     "data": cmd.get("data", {}),
@@ -297,10 +302,32 @@ def _canvas(nodes, edges=None, revision=None):
             )
         elif cmd.get("type") == "canvas.connect":
             state["edges"].append({"from": cmd["from"], "to": cmd["to"], "kind": cmd["kind"]})
+        elif cmd.get("type") == "canvas.delete_node":
+            state["nodes"] = [n for n in state["nodes"] if n["id"] != cmd["nodeId"]]
+            state["edges"] = [
+                e for e in state["edges"] if cmd["nodeId"] not in (e["from"], e["to"])
+            ]
         return {"accepted": True, "response": {"verified": True}}
 
     def snapshot(project_id):
-        snap = {"nodes": list(state["nodes"]), "edges": list(state["edges"])}
+        snap = {
+            "nodes": list(state["nodes"]),
+            "edges": list(state["edges"]),
+            "node_media": [
+                {
+                    "nodeId": n["id"],
+                    "outputUrl": state["outputs"].get(n["id"]),
+                    "mediaState": (
+                        "output_available_unreviewed"
+                        if state["outputs"].get(n["id"])
+                        else "no_output"
+                    ),
+                    "latestJob": None,
+                    "pendingJobCount": 0,
+                }
+                for n in state["nodes"]
+            ],
+        }
         if revision is not None:
             snap["revision"] = revision
         return snap
@@ -1530,6 +1557,7 @@ def _updating_canvas(nodes):
         if cmd.get("type") == "canvas.update_node":
             node = next(n for n in state["nodes"] if n["id"] == cmd["nodeId"])
             node["data"] = dict(cmd["patch"]["data"])
+            node["title"] = cmd["patch"].get("title", node.get("title"))
             return {"accepted": True}
         return await create_or_connect(project_id, cmd)
 
@@ -1600,6 +1628,7 @@ async def test_a_last_frame_on_a_segment_that_does_not_continue_is_left_out(tmp_
             "type": "image",
             "title": "E01-02 尾帧",
             "data": {
+                "activeOutputRef": "local://frame",
                 "continuationSourceNodeId": cards["E01-02"]["id"],
                 "continuationTargetNodeId": cards["E01-03"]["id"],
             },
@@ -1684,3 +1713,270 @@ async def test_a_reimport_leaves_out_assets_a_segment_no_longer_uses(tmp_path):
     _write_production(tmp_path, cast=cast, art=_ART, storyboard=both, script=_SCRIPT)
     await _run_import(tmp_path, v3, {"1": "ep1"})
     assert _cards(state)["E01-01"]["data"]["excludedReferenceIds"] == []
+
+
+def _chained_storyboard(*seg_ids):
+    segments = [_segment(seg_ids[0])]
+    for previous, seg_id in itertools.pairwise(seg_ids):
+        segments.append({**_segment(seg_id), "continuesFrom": previous})
+    return {"source": "Test", "episodes": [{"ep": 1, "segments": segments}]}
+
+
+async def _imported_chain(tmp_path):
+    """E01-01 → E01-02 → E01-03 imported, each later card with its last-frame slot."""
+    storyboard = _chained_storyboard("E01-01", "E01-02", "E01-03")
+    _write_production(tmp_path, cast=_CAST, art=_ART, storyboard=storyboard, script=_SCRIPT)
+    v3, state = _updating_canvas(_TARGETS)
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+    assert len(_frames(state)) == 2
+    return v3, state
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_a_shorter_storyboard_deletes_the_cards_it_no_longer_has(tmp_path):
+    v3, state = await _imported_chain(tmp_path)
+    kept = _cards(state)["E01-01"]
+    # A card the user made by hand is not the importer's, whatever its segment id.
+    state["nodes"].append(
+        {"id": "own", "type": "video_prompt", "title": "mine", "data": {"segmentId": "X-01"}}
+    )
+
+    _write_production(
+        tmp_path, cast=_CAST, art=_ART, storyboard=_chained_storyboard("E01-01"), script=_SCRIPT
+    )
+    result = await _run_import(tmp_path, v3, {"1": "ep1"})
+
+    assert set(_cards(state)) == {"E01-01", "X-01"}
+    assert _cards(state)["E01-01"] is kept
+    assert _frames(state) == []
+    ids = {n["id"] for n in state["nodes"]}
+    assert all(e["from"] in ids and e["to"] in ids for e in state["edges"])
+    assert result["receipt"]["removed_stale_cards"] == ["E01-02", "E01-03"]
+    assert result["receipt"]["removed_stale_frames"] == 2
+    assert result["receipt"]["retired_stale_cards"] == []
+    assert "E01-02, E01-03" in result["next_step"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_a_stale_card_holding_media_or_edits_is_renamed_not_deleted(tmp_path):
+    v3, state = await _imported_chain(tmp_path)
+    cards = _cards(state)
+    state["outputs"][cards["E01-03"]["id"]] = "/v3/storage/generated"
+    cards["E01-02"]["data"]["prompt"] = "rewritten on the canvas"
+
+    _write_production(
+        tmp_path, cast=_CAST, art=_ART, storyboard=_chained_storyboard("E01-01"), script=_SCRIPT
+    )
+    result = await _run_import(tmp_path, v3, {"1": "ep1"})
+
+    assert result["receipt"]["retired_stale_cards"] == ["E01-02", "E01-03"]
+    assert result["receipt"]["removed_stale_cards"] == []
+    for seg_id in ("E01-02", "E01-03"):
+        card = cards[seg_id]
+        assert card in state["nodes"]
+        assert card["title"].startswith("[已作废] ")
+        assert card["data"]["retired"] is True
+        assert "production_pointer" not in card["data"]
+    assert cards["E01-02"]["data"]["prompt"] == "rewritten on the canvas"
+
+    # The segment coming back gets a new card; the retired one keeps its media.
+    _write_production(
+        tmp_path,
+        cast=_CAST,
+        art=_ART,
+        storyboard=_chained_storyboard("E01-01", "E01-03"),
+        script=_SCRIPT,
+    )
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+    assert _cards(state)["E01-03"]["id"] != cards["E01-03"]["id"]
+    assert cards["E01-03"]["title"].count("[已作废]") == 1
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_an_empty_slot_a_segment_no_longer_continues_from_is_deleted(tmp_path):
+    v3, state = await _imported_chain(tmp_path)
+    cards = _cards(state)
+    used = next(
+        f for f in _frames(state) if f["data"]["continuationTargetNodeId"] == cards["E01-03"]["id"]
+    )
+
+    storyboard = _chained_storyboard("E01-01", "E01-02", "E01-03")
+    del storyboard["episodes"][0]["segments"][1]["continuesFrom"]
+    _write_production(tmp_path, cast=_CAST, art=_ART, storyboard=storyboard, script=_SCRIPT)
+    result = await _run_import(tmp_path, v3, {"1": "ep1"})
+
+    assert _frames(state) == [used]
+    assert set(_cards(state)) == {"E01-01", "E01-02", "E01-03"}
+    assert not _cards(state)["E01-02"]["data"]["excludedReferenceIds"]
+    assert result["receipt"]["removed_stale_frames"] == 1
+    assert result["receipt"]["removed_stale_cards"] == []
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_a_stale_card_is_never_deleted_when_media_is_not_reported(tmp_path):
+    v3, state = await _imported_chain(tmp_path)
+    reporting = v3.get_snapshot.side_effect
+
+    def without_media(project_id):
+        snap = reporting(project_id)
+        snap.pop("node_media")
+        return snap
+
+    v3.get_snapshot.side_effect = without_media
+    _write_production(
+        tmp_path, cast=_CAST, art=_ART, storyboard=_chained_storyboard("E01-01"), script=_SCRIPT
+    )
+    result = await _run_import(tmp_path, v3, {"1": "ep1"})
+
+    assert result["receipt"]["removed_stale_cards"] == []
+    assert result["receipt"]["retired_stale_cards"] == ["E01-02", "E01-03"]
+    assert len(_frames(state)) == 2
+
+
+_STATE_CAST = {
+    "characters": [
+        {
+            "id": "C01",
+            "name": "顾青",
+            "image": {"sheet": "16:9 sheet prompt"},
+            "states": [
+                {
+                    "id": "soaked",
+                    "label": "淋雨后",
+                    "descriptor": "Same traveler, soaked through.",
+                    "image": {"prompt": "half-length state portrait", "sheet": "16:9 state sheet"},
+                }
+            ],
+        }
+    ]
+}
+
+
+def _state_segment(seg_id, state, prompt=""):
+    seg = _segment(seg_id, prompt=prompt)
+    seg["cuts"][0]["characterStates"] = {"C01": state}
+    return seg
+
+
+def _state_sheets(state):
+    return [n for n in state["nodes"] if (n.get("data") or {}).get("characterState")]
+
+
+def _references(state, card):
+    return {
+        e["from"] for e in state["edges"] if e["to"] == card["id"] and e["kind"] == "references"
+    }
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_a_costume_state_is_referenced_through_its_own_sheet_card(tmp_path):
+    plain = {
+        "source": "Test",
+        "episodes": [{"ep": 1, "segments": [_segment("E01-01"), _segment("E01-02")]}],
+    }
+    _write_production(tmp_path, cast=_STATE_CAST, art=_ART, storyboard=plain, script=_SCRIPT)
+    v3, state = _updating_canvas(_TARGETS)
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+    [main] = [n for n in state["nodes"] if (n.get("data") or {}).get("characterId") == "C01"]
+
+    # The second segment now dresses the character in a costume state.
+    dressed = {
+        "source": "Test",
+        "episodes": [
+            {"ep": 1, "segments": [_segment("E01-01"), _state_segment("E01-02", "soaked")]}
+        ],
+    }
+    _write_production(tmp_path, cast=_STATE_CAST, art=_ART, storyboard=dressed, script=_SCRIPT)
+    result = await _run_import(tmp_path, v3, {"1": "ep1"})
+
+    [sheet] = _state_sheets(state)
+    assert sheet["title"] == "顾青 · 淋雨后 · 状态三视图"
+    assert sheet["data"]["characterId"] == "C01"
+    assert sheet["data"]["prompt"] == "16:9 state sheet"
+    assert sheet["data"]["role"] == "character_sheet"
+    assert sheet["data"]["production_pointer"] == "/characters/0/states/0/image/sheet"
+    # The state sheet takes its face from the main sheet.
+    assert {"from": main["id"], "to": sheet["id"], "kind": "references"} in state["edges"]
+    cards = _cards(state)
+    assert main["id"] in _references(state, cards["E01-01"])
+    assert sheet["id"] not in _references(state, cards["E01-01"])
+    assert sheet["id"] in _references(state, cards["E01-02"])
+    # The first import wired the main sheet in; it no longer feeds that card.
+    assert cards["E01-02"]["data"]["excludedReferenceIds"] == [f"node:{main['id']}"]
+    assert result["receipt"]["character_state_assets_linked"] == 1
+
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+    sheets = [n for n in state["nodes"] if (n.get("data") or {}).get("characterId") == "C01"]
+    assert len(sheets) == 2, "a re-import reuses the main and the state sheet"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_a_state_sheet_takes_the_characters_picture_number(tmp_path):
+    from agentnexus.seedance.storyboard_import import planned_image_references
+
+    on_canvas = [
+        *_TARGETS,
+        {
+            "id": "main",
+            "type": "image_prompt",
+            "title": "顾青 · 角色三视图",
+            "data": {"characterId": "C01"},
+        },
+        {
+            "id": "scene",
+            "type": "image_prompt",
+            "title": "南岸候船亭 · 场景概念图",
+            "data": {"sceneId": "S01"},
+        },
+    ]
+    storyboard = {
+        "source": "Test",
+        "episodes": [
+            {
+                "ep": 1,
+                "segments": [_state_segment("E01-01", "soaked", _prompt_needing_alignment())],
+            }
+        ],
+    }
+    _write_production(tmp_path, cast=_STATE_CAST, art=_ART, storyboard=storyboard, script=_SCRIPT)
+    v3, state = _updating_canvas(on_canvas)
+
+    result = await _run_import(tmp_path, v3, {"1": "ep1"})
+
+    card = _cards(state)["E01-01"]
+    [sheet] = _state_sheets(state)
+    planned = planned_image_references(state, card["id"])
+    assert [ref["id"] for ref in planned] == ["node:scene", f"node:{sheet['id']}"]
+    # Authored with the character second, which is where its state sheet sits.
+    assert card["data"]["prompt"] == _prompt_needing_alignment()
+    assert result["receipt"]["subject_alignment_review"] == []
+
+
+def test_missing_assets_require_a_sheet_for_every_costume_state_on_screen():
+    from pathlib import Path
+
+    from agentnexus.seedance.asset_anchors import _missing_visual_assets
+
+    segments = [
+        ({"ep": 1}, _state_segment("E01-01", "soaked")),
+        ({"ep": 1}, _state_segment("E01-02", "masked")),
+    ]
+    cast = json.loads(json.dumps(_STATE_CAST))
+    cast["characters"][0]["states"][0]["image"] = {}
+    documents = ((Path("cast.json"), cast), (Path("art.json"), _ART))
+
+    assert _missing_visual_assets(segments, [], *documents, script_doc=_SCRIPT) == [
+        "Character C01 wears state masked, which cast.json does not define.",
+        "Character C01 state soaked has no image.sheet in cast.json.",
+    ]
+    drawn = [
+        {"id": n, "type": "image_prompt", "data": {"characterId": "C01", "characterState": s}}
+        for n, s in (("a", "soaked"), ("b", "masked"))
+    ]
+    assert _missing_visual_assets(segments, drawn, *documents, script_doc=_SCRIPT) == []

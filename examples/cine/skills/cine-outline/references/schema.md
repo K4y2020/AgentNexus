@@ -7,7 +7,7 @@
   "source": "书名",
   "lang": "zh",
   "params": { "episodes": 60, "minutesPerEpisode": 2, "genre": "女频逆袭", "adaptMode": "抽核", "preferences": [] },
-  "adaptation": { "core": "…", "keep": [], "cut": [], "merge": [], "risks": [] },
+  "adaptation": { "core": "…", "forms": [], "keep": [], "cut": [], "merge": [], "risks": [] },
   "characters": [ { "id": "C01", "name": "…", "role": "…", "arc": "…", "from": ["原著…", "合并：…"] } ],
   "scenes": [ { "id": "S01", "name": "…", "primary": true, "reusePlan": "…" } ],
   "beats": [ { "id": "B01", "type": "打脸", "weight": "major", "episode": 3, "setup": "…", "payoff": "…" } ],
@@ -20,7 +20,7 @@
 | 字段 | 必填 | 说明 |
 | --- | --- | --- |
 | `episodes` | 是 | 总集数，正整数。分集数量必须与它一致 |
-| `minutesPerEpisode` | 是 | 单集时长（分钟） |
+| `minutesPerEpisode` | 否 | 单集时长（分钟），只填用户明确要求的。没给就省略，由编剧按戏定长；不要用原片时长，原片剪辑过、可能加速 |
 | `genre` | 是 | 题材，**决定爽点类型**，不许缺。投放平台的差异不单设字段，直接体现在 `thresholds` 上 |
 | `adaptMode` | 是 | `忠实` / `抽核` / `借壳`，只能这三个 |
 | `preferences` | 否 | 用户点名要保的角色、戏 |
@@ -28,7 +28,15 @@
 
 ## adaptation 改编说明
 
+`forms` 中 `scene_one_take` 表示每场各一个连续镜头，只在场与场之间切换；`one_take` 表示全片一镜到底。保留 `scene_one_take` 时可给 `sceneIds: ["S01", "S02"]` 限定大纲场景，省略表示逐场适用。分镜校验会要求这些场次每个生成段只有一个 cut、提示词明确连续拍摄、同场跨生成段通过 `continuesFrom` 续接。镜内多人依次对白、多个动作节拍不等于多个镜头。
+
 `core` 一句话核心，必填。`keep` / `cut` / `merge` 每条 `{what, why}`，`keep` 至少一条；**`adaptMode` 不是忠实时 `cut` 不能为空**。**忠实模式的 `cut` 是删句声明**：剧本若漏了源片台词，`what` 里要逐字引用被删的原句、`why` 写理由，否则剧本门 `source-coverage` 不通过。`keep` 可带 `evidence`——**原文逐字片段**，禁止凭书名脑补的对策就在这：关键取舍要能指回原文。`risks` 每条 `{what, plan}`。
+
+`forms` 是对原片**拍摄形式**的取舍：第一人称主视角、对镜头说话、伪纪录片、一镜到底、屏幕叙事、设备画面、分屏这类贯穿全片的手法。`production.py init` 按拉片稿的 `forms` 和逐镜头 `viewpoint` 预填，每条 `{form, how, decision, why}`，`decision` 填 `keep` 或 `drop`，`why` 写理由，删掉条目或留空都过不了 `production.py check`。形式决定片子是什么类型，放弃它要有意为之：比如主视角改成正反打，观众从「被一扇扇门示好的那个人」变成旁观者。保留 `pov` 时再填 `holder`：镜头代表的那个人在 `characters` 里的 id。
+
+```json
+"forms": [{ "form": "pov", "how": "镜头就是房东的眼睛，只有他的手进画", "decision": "keep", "why": "代入感来自被租客当面示好", "holder": "C01" }]
+```
 
 两个可选的**决策补注**，报告的「关键决策」区块会展示：
 

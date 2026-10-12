@@ -4,17 +4,19 @@
 
 In Cine's multi-skill pipeline the [production handoff](../film-analysis/references/production-handoff.md) governs the handoff contract and the Cine prompt's Tool boundaries govern canvas edits and generation; the skill also works standalone.
 
-Storyboarding for AI short drama: turns cine-script's beat flow into a worklist you can hand straight to a video model. This is the first layer in the pipeline that talks directly to that model, and the premise is baked in: generation and retries have costs; pacing follows narrative needs, with 2–5 seconds only a short-drama default. Hence a three-level structure:
+Beat coverage does not prove that the video prompt includes the claimed actions. Check each scene's required initiation, response, interaction and ending against the actual `[Shot k]` text. If the script already omits them, repair it first, then update beat ranges, opening frames, continuity states, prop ownership and duration. Preserve approved ellipsis and shooting forms; report text checks separately from generated-video review.
+
+Storyboarding for AI short drama: turns cine-script's beat flow into a video generation worklist. Shot duration and edits follow content and approved shooting forms. The default shot cap follows the provider's generation duration. Hence a three-level structure:
 
 ```
 segment = one video-generation call, ≤ 15s, never crosses scenes
- ├─ cuts × 3–5 = intra-segment edits, 2–5s each by default (configurable), each claiming script beats
+ ├─ cuts × 1–N = uninterrupted shots that may fill the segment, each claiming script beats
  ├─ frames    = one keyframe per cut: the master frame pinned at 0.00s,
  │              sub-frames pinned at their own cut marks
  └─ H3 prompt = one per segment; multi-picture alignment + [Shot k] cut times audited verbatim
 ```
 
-- **A dialogue's shot–reverse-shot lives inside one segment, one generation** — wide, close on A, close on B are separate 2–5s cuts, each composition controlled by its own storyboard frame instead of gambling on prose
+- **Dialogue follows the chosen shooting form** — several speakers may speak sequentially in one shot; motivated shot–reverse-shot remains available. Every line still binds its speaker, voice and source ID
 - **The alignment instruction is derived, not written** — the multi-picture line (`Picture 2 aligns with the 3.00-second mark…`) and every `[Shot k] At 00:0X.XXX` cut time are computed from cut durations, and validate audits them **character for character**: change a duration without updating the prompt and it blocks
 - **Prompts follow the official spec: English by default, one shot per line** — each shot on its own line with its cut time; dialogue, lyrics and on-screen text keep their original language per the official rules (`<d>[Chinese] …</d>` verbatim). `promptLang: 'zh'` switches the whole prompt to Chinese. The writing spec is internalized as `references/h3-prompt.md` — **this skill is self-contained and depends on no external skill**
 - **Frames are asset composition, not invention** — generation feeds the scene / character / prop sheets as references; available V3 tools and explicit authorization allow submission, with results separately verified (optional)
@@ -33,7 +35,7 @@ Same stance as the other four skills in this repo: **a checklist the model grade
 | --- | --- |
 | **Full beat coverage** | every script beat claimed exactly once, in order, contiguous, cut-level |
 | Segment duration | 0 < Σcuts ≤ 15s (the single-generation cap; tune `params.maxSegmentSeconds`) |
-| **Cut duration** | 2–5s by default, configurable via `params.minCutSeconds` / `params.maxCutSeconds`; not a universal film rule |
+| **Cut duration** | Default minimum 2s; maximum follows `maxSegmentSeconds` (15s for the current H3 workflow). Explicit `maxCutSeconds` may constrain the creative range |
 | Dialogue fits | dialogue seconds of claimed beats ≤ cut seconds, per cut |
 | Episode total | Σ segments within ±15% of the script's `targetSeconds` |
 | On-screen cap | ≤ 3 characters per cut, more requires a breakdown note |
@@ -43,7 +45,7 @@ Same stance as the other four skills in this repo: **a checklist the model grade
 | **H3 structure** | the alignment line is **derived from the cut structure and audited verbatim**; three fields in order; every `[Shot k]` cut time equals the running sum of prior cut durations |
 | **H3 dialogue verbatim** | every claimed line appears verbatim inside a `<d>` block — one changed punctuation mark fails |
 | **Prompt language consistency** | prose audited both ways against `promptLang`: Chinese drama written in English fails, English mode mixing Chinese fails |
-| **Style phrase** | the `style` preset's English phrase (realistic / ghibli, name-aligned with the character and art skills) must appear in every frame prompt — one drama, one look |
+| **Style phrase** | the `style` preset's English phrase (photoreal / semi-realistic / ghibli, name-aligned with the character and art skills) must appear in every frame prompt — one drama, one look |
 | Frame-prompt hygiene | English-only, non-empty |
 | No character names | frame prompts always; the H3 prompt only in English mode (Chinese prompts allow names — identity is anchored by the frames). Checked with `--outline` / `--cast`; skipping is **announced** |
 | Reference integrity | scene index / characters / props all audited against the script scene |

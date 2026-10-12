@@ -1,10 +1,12 @@
 """Source presence constrains a faithful script's scene cast."""
 
 try:
+    from .form_gate import kept_pov_holder
     from .location_gate import _label, line_locations
     from .performance_gate import pair_lines
     from .speaker_evidence import mapping_ids
 except ImportError:
+    from form_gate import kept_pov_holder
     from location_gate import _label, line_locations
     from performance_gate import pair_lines
     from speaker_evidence import mapping_ids
@@ -102,6 +104,10 @@ def check_people(script, outline, material, cast, mapping, attributions):
                 required.update(facts[lid][0])
                 allowed.update(facts[lid][1])
                 certain = certain and facts[lid][2]
+            # The camera holder may be heard without appearing in the source's visible cast.
+            holder = kept_pov_holder(outline)
+            if holder:
+                allowed.add(holder)
             actual = set(scene.get("characters") or []) - {"VO"}
             label = f"第 {index} 场 {scene.get('sceneId')}"
             times = "、".join(_label(known[lid]) for lid in origins)

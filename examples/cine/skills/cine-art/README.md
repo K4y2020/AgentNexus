@@ -56,7 +56,7 @@ cine-art        → art.json     （哪里 + 手里拿的：美术资产）
 
 - `seed <outline.json>` 确定性预填场景与道具两张清单，连出现集、承载爽点一起搬；大纲没有 `props` 时道具留空，模型按 `prop-pass.md` 从原文提取
 - `validate --cast <cast.json>` 用角色表查提示词里有没有混进角色名
-- 画风预设与 cine-characters **同名对齐**（realistic / ghibli）但内容是环境版——真实感来自用旧的材质，不是皮肤毛孔
+- 画风预设与 cine-characters **同名对齐**（photoreal / semi-realistic / ghibli）但内容是环境版——真实感来自用旧的材质，不是皮肤毛孔
 
 ## 命令行直接用
 

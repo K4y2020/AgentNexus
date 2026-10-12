@@ -419,8 +419,8 @@ export function gateReport(doc, ctx = {}) {
   }
 
   // ---- 人物在场逻辑检查 (dialogue-causality) ----
-  // 只做确定性的在场对账。台词之间的因果是否成立是语义判断，归 JEV 剧本门
-  // （causal_continuity）——按某个故事的台词关键词写死的规则，换一个故事就误拦或漏拦。
+  // 只做确定性的在场对账。台词之间的因果是否成立是语义判断，不用关键词规则：
+  // 按某个故事的台词关键词写死的规则，换一个故事就误拦或漏拦。
   const nameIndex = characterNameIndex(ctx);
 
   for (const ep of eps) {
@@ -459,7 +459,8 @@ export function gateReport(doc, ctx = {}) {
   const coverageSkip = !ctx.source ? SKIP_SOURCE : !ctx.outline ? SKIP_OUTLINE : SKIP_FAITHFUL;
 
   add('params-conservative', '时长与质量参数只能保持默认值或收紧', bad.params.length === 0, bad.params.join('；'));
-  add('duration', `每集时长在目标 ±${Math.round(params.tolerance * 100)}% 内`, eps.length > 0 && bad.duration.length === 0, bad.duration.join('；'));
+  const untimed = eps.length > 0 && !eps.some((e) => e?.targetSeconds > 0);
+  add('duration', `每集时长在目标 ±${Math.round(params.tolerance * 100)}% 内`, eps.length > 0 && bad.duration.length === 0, untimed ? '未设目标时长，由编剧按戏定长' : bad.duration.join('；'));
   add('line-length', `单句台词 ≤ ${params.maxLineChars} 字`, bad.lineLen.length === 0, bad.lineLen.join('；'));
   add('speaker', '说话人在本场人物里，或标 VO / 非角色 extra', bad.speaker.length === 0, bad.speaker.join('；'));
   add('hook-cliff', '每集开场钩子与结尾悬念都落在纸面', eps.length > 0 && bad.hook.length === 0, bad.hook.join('；'));
@@ -764,7 +765,11 @@ export function validateScript(doc, ctx = {}) {
     if (!Number.isInteger(ep?.ep) || ep.ep < 1) p(`${label}的 ep 必须是正整数`);
     if (seen.has(ep?.ep)) p(`集号 ${ep.ep} 重复`);
     seen.add(ep?.ep);
-    if (!(ep?.targetSeconds > 0)) p(`${label}缺 targetSeconds（目标秒数，来自大纲的单集时长）`);
+    if (ep?.targetSeconds != null && !(ep.targetSeconds > 0)) p(`${label}的 targetSeconds 必须大于 0`);
+    // 大纲定了单集时长就必须带目标；没定时不设目标，由编剧按戏定长
+    if (ep?.targetSeconds == null && ctx.outline?.params?.minutesPerEpisode > 0) {
+      p(`${label}缺 targetSeconds（目标秒数，来自大纲的单集时长）`);
+    }
     if (!Array.isArray(ep?.beatsClaimed)) p(`${label}缺 beatsClaimed（认领的爽点，可为空数组）`);
     if (!Array.isArray(ep?.scenes) || ep.scenes.length === 0) {
       p(`${label}没有场次`);
@@ -809,13 +814,15 @@ export function validateScript(doc, ctx = {}) {
  */
 
 export function seedFromOutline(outline, epRange = null) {
-  const perEp = (outline?.params?.minutesPerEpisode ?? 3) * 60;
+  // 只有用户定了单集时长才有目标；没定就由编剧按戏定长，不拿原片时长凑数。
+  const minutes = outline?.params?.minutesPerEpisode;
+  const perEp = minutes > 0 ? minutes * 60 : null;
   const inRange = (n) => !epRange || (n >= epRange[0] && n <= epRange[1]);
   const episodes = (outline?.episodes ?? [])
     .filter((e) => inRange(e.ep))
     .map((e) => ({
       ep: e.ep,
-      targetSeconds: perEp,
+      ...(perEp ? { targetSeconds: perEp } : {}),
       hook: e.hook ?? '',
       cliff: e.suspense ?? '',
       beatsClaimed: [...new Set((outline.beats ?? []).filter((b) => b.episode === e.ep).map((b) => b.type))],
@@ -885,7 +892,7 @@ const I18N = {
     gatePill: (okN, total) => `质量门 ${okN} / ${total}`,
     kpi: {
       eps: '集数', epsSub: (sc) => `${sc} 场戏`,
-      time: '预估总时长', timeSub: (t) => `目标 ${t}`,
+      time: '预估总时长', timeSub: (t) => `目标 ${t}`, noTarget: '未设目标，编剧定长',
       lines: '台词', linesSub: (sec) => `约 ${sec} 秒对白`,
       dlgRatio: '台词占比', dlgRatioSub: '其余是画面与动作',
       avgScene: '平均每场', avgSceneSub: '换景是统计不是门——AI 换景不要钱',
@@ -904,7 +911,7 @@ const I18N = {
     voiceBtn: '音色提示词',
     cliffLabel: '结尾悬念',
     beatsLabel: '认领爽点',
-    estLabel: (est, target) => `预估 ${est} 秒 / 目标 ${target} 秒`,
+    estLabel: (est, target) => (target > 0 ? `预估 ${est} 秒 / 目标 ${target} 秒` : `预估 ${est} 秒（编剧定长）`),
     sceneHead: (i) => `第 ${i} 场`,
     voLabel: '画外音',
     extraLabel: '非角色人物',
@@ -942,7 +949,7 @@ const I18N = {
     gatePill: (okN, total) => `Quality gates ${okN} / ${total}`,
     kpi: {
       eps: 'Episodes', epsSub: (sc) => `${sc} scenes`,
-      time: 'Estimated runtime', timeSub: (t) => `target ${t}`,
+      time: 'Estimated runtime', timeSub: (t) => `target ${t}`, noTarget: 'no target; length set by the script',
       lines: 'Lines', linesSub: (sec) => `~${sec}s of dialogue`,
       dlgRatio: 'Dialogue ratio', dlgRatioSub: 'the rest is picture and action',
       avgScene: 'Avg per scene', avgSceneSub: 'scene changes are a statistic, not a gate — AI scene changes are free',
@@ -961,7 +968,7 @@ const I18N = {
     voiceBtn: 'Voice prompt',
     cliffLabel: 'Cliffhanger',
     beatsLabel: 'Beats claimed',
-    estLabel: (est, target) => `est. ${est}s / target ${target}s`,
+    estLabel: (est, target) => (target > 0 ? `est. ${est}s / target ${target}s` : `est. ${est}s (length set by the script)`),
     sceneHead: (i) => `Scene ${i}`,
     voLabel: 'V.O.',
     extraLabel: 'Anonymous speaker',
@@ -1080,19 +1087,20 @@ export function renderHtml(doc, ctx = {}) {
   const scaleMax = Math.max(...stats.episodes.map((e) => Math.max(e.est, (e.target ?? 0) * (1 + stats.params.tolerance)))) * 1.08;
   const timingRows = stats.episodes
     .map((e) => {
-      const lo = e.target * (1 - stats.params.tolerance);
-      const hi = e.target * (1 + stats.params.tolerance);
-      const inBand = e.est >= lo && e.est <= hi;
+      const timed = e.target > 0;
+      const lo = timed ? e.target * (1 - stats.params.tolerance) : 0;
+      const hi = timed ? e.target * (1 + stats.params.tolerance) : 0;
+      const inBand = !timed || (e.est >= lo && e.est <= hi);
       const pct = (v) => `${r1((v / scaleMax) * 100)}%`;
       const status = inBand ? '' : ` <b class="over">${esc(e.est > hi ? t.overBy(r1(e.est - hi)) : t.underBy(r1(lo - e.est)))}</b>`;
       return `<div class="trow">
   <span class="tep">E${String(e.ep).padStart(2, '0')}</span>
   <div class="track">
-    <span class="band" style="left:${pct(lo)};width:${pct(hi - lo)}"></span>
+    ${timed ? `<span class="band" style="left:${pct(lo)};width:${pct(hi - lo)}"></span>` : ''}
     <span class="fill dlg" style="width:${pct(e.dialogueSeconds)}"></span>
     <span class="fill act" style="left:${pct(e.dialogueSeconds)};width:${pct(e.actionSeconds)}"></span>
   </div>
-  <span class="tval${inBand ? ' okc' : ''}">${e.est}s / ${e.target}s${status}</span>
+  <span class="tval${inBand ? ' okc' : ''}">${e.est}s${timed ? ` / ${e.target}s` : ''}${status}</span>
 </div>`;
     })
     .join('\n');
@@ -1351,7 +1359,7 @@ td:first-child{font-family:var(--mono);font-size:12px;color:var(--ink-2);white-s
 
 <div class="kpis">
   <div class="kpi accent"><div class="l">${esc(t.kpi.eps)}</div><div class="v">${stats.totals.episodes}</div><div class="d">${esc(t.kpi.epsSub(stats.totals.scenes))}</div></div>
-  <div class="kpi"><div class="l">${esc(t.kpi.time)}</div><div class="v">${esc(fmtMin(stats.totals.estSeconds))}</div><div class="d">${esc(t.kpi.timeSub(fmtMin(stats.totals.targetSeconds)))}</div></div>
+  <div class="kpi"><div class="l">${esc(t.kpi.time)}</div><div class="v">${esc(fmtMin(stats.totals.estSeconds))}</div><div class="d">${esc(stats.totals.targetSeconds > 0 ? t.kpi.timeSub(fmtMin(stats.totals.targetSeconds)) : t.kpi.noTarget)}</div></div>
   <div class="kpi"><div class="l">${esc(t.kpi.lines)}</div><div class="v">${stats.totals.lines} <small>${esc(t.unitLines)}</small></div><div class="d">${esc(t.kpi.linesSub(stats.totals.dialogueSeconds))}</div></div>
   <div class="kpi"><div class="l">${esc(t.kpi.dlgRatio)}</div><div class="v">${dlgRatio}<small>%</small></div><div class="d">${esc(t.kpi.dlgRatioSub)}</div></div>
   <div class="kpi"><div class="l">${esc(t.kpi.avgScene)}</div><div class="v">${avgScene} <small>${esc(t.unitSec)}</small></div><div class="d">${esc(t.kpi.avgSceneSub)}</div></div>
@@ -1532,7 +1540,7 @@ function main(argv) {
       process.exit(1);
     }
     const st = computeStats(doc);
-    console.log(`✓ ${st.totals.episodes} 集 / ${st.totals.scenes} 场 / ${st.totals.lines} 句台词全部通过校验（预估 ${st.totals.estSeconds}s / 目标 ${st.totals.targetSeconds}s）`);
+    console.log(`✓ ${st.totals.episodes} 集 / ${st.totals.scenes} 场 / ${st.totals.lines} 句台词全部通过校验（预估 ${st.totals.estSeconds}s${st.totals.targetSeconds > 0 ? ` / 目标 ${st.totals.targetSeconds}s` : '，编剧定长'}）`);
     return;
   }
 

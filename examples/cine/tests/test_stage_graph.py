@@ -16,7 +16,6 @@ def test_every_stage_reads_only_documents_written_before_it():
     for position, (stage, spec) in enumerate(STAGES.items()):
         earlier = set(ORDER[:position])
         assert set(spec.validator_inputs) <= earlier, stage
-        assert set(spec.jev_context) <= earlier, stage
         assert spec.seed_from is None or spec.seed_from in earlier, stage
 
 
@@ -47,11 +46,3 @@ def test_validation_scope_follows_validator_inputs_transitively():
     assert stage_graph.validation_scope("cast") == ("cast",)
     assert stage_graph.validation_scope("art") == ("cast", "art")
     assert stage_graph.validation_scope("storyboard") == ORDER
-
-
-def test_an_upstream_repair_may_target_what_the_stage_reads():
-    assert stage_graph.repair_upstreams("outline") == ()
-    # The cast review reads the outline even though its validator does not.
-    assert stage_graph.repair_upstreams("cast") == ("outline",)
-    assert stage_graph.repair_upstreams("art") == ("cast",)
-    assert stage_graph.repair_upstreams("storyboard") == ("outline", "cast", "art", "script")

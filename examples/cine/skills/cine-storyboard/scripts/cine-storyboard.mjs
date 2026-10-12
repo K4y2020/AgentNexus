@@ -5,7 +5,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, r1, readJson, runCli, safeStem } from '../../_shared/cine-common.mjs';
+import { artworkMedium, canonicalStyle, embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, r1, readJson, runCli, safeStem } from '../../_shared/cine-common.mjs';
 
 /* ------------------------------------------------------------------ */
 /* 常量                                                                */
@@ -14,26 +14,28 @@ import { embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, r1, readJ
  * AI 短剧的前提刻在骨子里，三层结构也由此而来：
  *
  *   段（segment）＝ 一次视频生成调用，上限就是模型单段时长（默认 15 秒）
- *   分镜（cut）  ＝ 段内的一次剪切，2–5 秒——短剧观众的注意力节奏
+ *   分镜（cut）  ＝ 一次连续拍摄，可覆盖整段，也可承接到下一生成段
  *   分镜图       ＝ 每个分镜一张关键帧：第 1 个分镜的是主分镜图（钉在
  *                  0.00 秒），其余是子分镜图（各钉在自己的切点时刻）
  *
  * 一段的画面由这串分镜图 + 一条 H3 提示词共同控制：多图对齐指令
  * 把每张图钉在对应秒数上，[Shot k] 的切点时刻和分镜秒数逐一对账。
- * 多切一刀的成本几乎为零，所以不心疼分镜数量，只守节奏。
+ * 是否切镜由叙事与已确认的拍摄形式决定，生成段边界不自动成为切点。
  */
 
 export const DEFAULT_PARAMS = {
   minSegmentSeconds: 4,  // 视频模型单段生成下限（秒，如 AutoDL H3 限制 ≥4 秒）
   maxSegmentSeconds: 15, // 视频模型单段生成上限（秒）
   minCutSeconds: 2,      // 单个分镜下限
-  maxCutSeconds: 5,      // 单个分镜上限——3 秒左右是短剧的呼吸
+  maxCutSeconds: 15,     // 缺省跟随单段上限，不另设切镜节奏
   maxOnScreen: 3,        // 单个分镜同框人数上限，超了必须带拆解说明
   tolerance: 0.15,       // 每集总时长对剧本目标的容差
 };
 
 export function paramsOf(doc) {
-  return { ...DEFAULT_PARAMS, ...(doc?.params ?? {}) };
+  const params = { ...DEFAULT_PARAMS, ...(doc?.params ?? {}) };
+  params.maxCutSeconds = doc?.params?.maxCutSeconds ?? params.maxSegmentSeconds;
+  return params;
 }
 
 /** 景别枚举：英文短语必须出现在该分镜的分镜图提示词里。 */
@@ -72,10 +74,14 @@ export const CAMERA_MOVES = {
 /** 固定镜头的段落里不该出现「镜头在动」的写法，否则视频模型拿到的是自相矛盾的指令。 */
 const CAMERA_MOVING = /\bcamera\s+(?:[a-z]+ly\s+)?(?:pans?|sweeps?|tracks?|follows?|pushes|pulls?|dolly|dollies|tilts?|cranes?|glides?|arcs?|orbits?|zooms?|swings?|whips?|drifts?|moves?|trucks?|travels?|circles?|rises?|lowers?|descends?|tightens?|widens?|creeps?|slides?|rolls?)\b|镜头(?:缓缓|慢慢|缓慢|快速|迅速|随之|随即|逐渐|一路)?(?:推进|推近|拉远|拉开|摇向|摇到|横摇|横移|跟随|跟着|上升|下降|环绕|旋转|甩向)/i;
 
-/** 分镜图风格预设：与 cine-characters / cine-art 同名对齐（realistic / ghibli）。
+/** 分镜图风格预设：与 cine-characters / cine-art 同名对齐（photoreal / semi-realistic / ghibli）。
  *  短语必须出现在每条分镜图提示词里——同一部剧的分镜图不许画风漂。 */
 export const STYLE_PRESETS = {
-  realistic: {
+  photoreal: {
+    zh: '写实', phrase: 'photorealistic live-action',
+    sentence: 'The target video is photorealistic live-action footage with natural skin and true-to-life materials, clean smooth surfaces without film grain or digital noise, and practical light matching the cast and art references.',
+  },
+  'semi-realistic': {
     zh: '半写实厚涂', phrase: 'semi-realistic painterly',
     sentence: 'The target video uses a semi-realistic painterly style with visible brush texture, grounded proportions and softly layered light matching the cast and art references.',
   },
@@ -84,7 +90,7 @@ export const STYLE_PRESETS = {
     sentence: 'The target video uses a hand-painted anime style with soft watercolour shading, readable shapes and gentle painted edges matching the cast and art references.',
   },
 };
-export const DEFAULT_STYLE = 'realistic';
+export const DEFAULT_STYLE = 'semi-realistic';
 
 const CJK = /[㐀-鿿぀-ヿ가-힯]/;
 
@@ -375,12 +381,18 @@ export function expandScript(script) {
         };
       }),
     }));
-    eps.set(ep.ep, { ep: ep.ep, targetSeconds: ep.targetSeconds, scenes });
+    // 剧本预估时长：用户没定目标时，它就是本集该拍多久
+    const estSeconds = r1(scenes.reduce((n, sc) => n + sc.beats.reduce((m, b) => m + b.seconds, 0), 0));
+    eps.set(ep.ep, { ep: ep.ep, targetSeconds: ep.targetSeconds, estSeconds, scenes });
   }
   return eps;
 }
 
 export const segSeconds = (segment) => r1((segment?.cuts ?? []).reduce((n, c) => n + (c?.seconds ?? 0), 0));
+
+/** 一集该拍多久：剧本有目标用目标，用户没定时长时用剧本预估。返回 [秒数, 叫法]。 */
+export const episodeLength = (sEp) =>
+  sEp?.targetSeconds > 0 ? [sEp.targetSeconds, '目标'] : [sEp?.estSeconds ?? 0, '剧本预估'];
 
 /* ------------------------------------------------------------------ */
 /* Cinematic audit (read-only)                                          */
@@ -388,7 +400,7 @@ export const segSeconds = (segment) => r1((segment?.cuts ?? []).reduce((n, c) =>
 
 const AUDIT_RULES = [
   'style-consistency', 'video-no-film-still', 'no-background-music',
-  'dialogue-speaker-visible', 'one-speaker-per-cut', 'same-scene-continues-from',
+  'dialogue-speaker-visible', 'same-scene-continues-from',
   'no-internal-labels', 'consistent-character-naming',
   'h3-style-before-shot1', 'h3-subject-inline-binding', 'h3-referenced-speaker-binding', 'h3-speaker-voice',
   'h3-vocal-source-ids', 'h3-nonverbal-vocal-cues', 'h3-summary-task-prefix', 'h3-retention-per-line',
@@ -415,18 +427,7 @@ function auditLabels(text) {
   }).map((match) => match[0]);
 }
 
-function auditMedium(text) {
-  const value = h3Remainder(text)
-    .replace(/\b(?:framed|composed|posed|cropped)\s+(?:like|as)\s+(?:an?\s+)?(?:ID|passport|portrait)\s+photograph\b/gi, '')
-    .replace(/\b(?:no|not|without|avoid)\s+(?:photorealistic|photographic|live[ -]action|3d\s+render(?:ing)?)\b/gi, '');
-  const families = [];
-  if (/\blive[ -]action\b|\bphoto(?:realistic|graph(?:ic|y)?)\b|真人实拍|照片写实/i.test(value)) families.push('live-action');
-  if (/\banime\b|\bghibli\b|吉卜力|手绘动画/i.test(value)) families.push('anime');
-  else if (/\bcartoon\b|\b2d\s+animation\b|卡通|二维动画/i.test(value)) families.push('cartoon');
-  else if (/\bpainterly\b|\bhand[ -]painted\b|\b(?:oil|watercolou?r)\s+paint(?:ing|ed)\b|绘画风|油画|水彩/i.test(value)) families.push('painted');
-  if (/\b3d\s+(?:render|animation)\b|三维动画/i.test(value)) families.push('3d');
-  return families;
-}
+const auditMedium = (text) => artworkMedium(h3Remainder(text));
 
 function auditMusic(prompt) {
   const match = /(?:non_diegetic_music:|非叙事配乐：)([\s\S]*)/.exec(prompt);
@@ -712,7 +713,7 @@ export function auditStoryboard(board, ctx = {}) {
     if (!doc) skip(styleRule, label, `Missing ${label}.json; reference style metadata was not compared`);
     else {
       evaluated(styleRule);
-      if ((doc.style ?? DEFAULT_STYLE) !== (board?.style ?? DEFAULT_STYLE)) {
+      if (canonicalStyle(doc.style ?? DEFAULT_STYLE) !== canonicalStyle(board?.style ?? DEFAULT_STYLE)) {
         issue(styleRule, `${label}.style`, 'Reference and storyboard style IDs differ', {
           reference: doc.style ?? DEFAULT_STYLE, storyboard: board?.style ?? DEFAULT_STYLE,
         });
@@ -845,7 +846,10 @@ export function auditStoryboard(board, ctx = {}) {
         else {
           evaluated(styleRule);
           if (videoMedium.length !== 1 || referenceMedium.length !== 1 || videoMedium[0] !== referenceMedium[0]) {
-            issue(styleRule, `${sid} <> ${reference.location}`, 'Explicit reference and video medium markers conflict', { video: videoMedium, reference: referenceMedium });
+            const upstream = referenceMedium.length > 1 && !reference.location.endsWith('.frame');
+            issue(styleRule, `${sid} <> ${reference.location}`, upstream
+              ? 'The cast/art reference itself names more than one medium; it is fixed in cast.json/art.json, not in the storyboard'
+              : 'Explicit reference and video medium markers conflict', { video: videoMedium, reference: referenceMedium });
           }
         }
       }
@@ -856,13 +860,10 @@ export function auditStoryboard(board, ctx = {}) {
         collect(`${cid}.note`, cut.note);
         const [from, to] = cut.beats ?? [];
         if (!scene || !Number.isInteger(from) || !Number.isInteger(to) || from < 1 || from > to || to > scene.beats.length) {
-          for (const rule of ['dialogue-speaker-visible', 'one-speaker-per-cut']) skip(rule, cid, 'Valid script scene and beat range are required');
+          skip('dialogue-speaker-visible', cid, 'Valid script scene and beat range are required');
           continue;
         }
         const lines = scene.beats.slice(from - 1, to).filter((beat) => beat.kind === 'line');
-        evaluated('one-speaker-per-cut');
-        const speakers = new Set(lines.map((beat) => resolveSpeaker(beat.speaker) ?? auditText(beat.speaker)));
-        if (speakers.size > 1) issue('one-speaker-per-cut', cid, 'A cut contains lines from multiple speakers; give each speaker a cut of their own (a voice-over is a separate source)', { speakers: [...speakers], beats: [from, to] });
         for (const beat of lines) {
           evaluated('dialogue-speaker-visible');
           const speaker = resolveSpeaker(beat.speaker) ?? beat.speaker;
@@ -903,7 +904,7 @@ export function auditStoryboard(board, ctx = {}) {
     rule.status = rule.issues ? 'fail' : rule.skipped ? 'incomplete' : rule.evaluated ? 'pass' : 'not-applicable';
   }
   return {
-    audit_version: 3, scope: 'read-only',
+    audit_version: 4, scope: 'read-only',
     status: issues.length ? 'fail' : skips.length ? 'incomplete' : 'pass',
     issue_count: issues.length, issues, skips, evaluated_checks,
     limitations: [
@@ -1088,7 +1089,8 @@ export function computeStats(board, script) {
     }
     episodes.push({
       ep: ep.ep,
-      target: sEp?.targetSeconds ?? 0,
+      target: episodeLength(sEp)[0],
+      scriptLength: Boolean(sEp) && !(sEp.targetSeconds > 0),
       segments: (ep?.segments ?? []).length,
       cuts: cutCount,
       totalSeconds: r1(total),
@@ -1102,6 +1104,7 @@ export function computeStats(board, script) {
     cuts: episodes.reduce((n, e) => n + e.cuts, 0),
     seconds: r1(episodes.reduce((n, e) => n + e.totalSeconds, 0)),
     targetSeconds: episodes.reduce((n, e) => n + e.target, 0),
+    scriptLength: episodes.some((e) => e.scriptLength),
     withLines: episodes.reduce((n, e) => n + e.withLines, 0),
     avgCutSeconds: 0,
   };
@@ -1140,6 +1143,8 @@ function reversedMotion(a, b) {
 // shot's visible action.  A no-op ledger must not be allowed to contradict it.
 const FRAME_ACTION_RE = /\b(?:seiz(?:es|ed|ing)|gripp(?:s|ed|ing)|wrench(?:es|ed|ing)|reach(?:es|ed|ing)|clap(?:s|ped|ping)|pat(?:s|ted|ting)|tilt(?:s|ed|ing)|smooth(?:s|ed|ing)|kneel(?:s|ed|ing)|trembl(?:es|ed|ing)|turn(?:s|ed|ing)|nod(?:s|ded|ding)|hurr(?:y|ies|ied|ying)|wrap(?:s|ped|ping)|wipe(?:s|d|ing)|pivot(?:s|ed|ing)|shout(?:s|ed|ing)|chant(?:s|ed|ing)|rais(?:es|ed|ing)|lift(?:s|ed|ing)|walk(?:s|ed|ing)|run(?:s|ran|ning)|step(?:s|ped|ping)|march(?:es|ed|ing)|stare(?:s|d|ing)|look(?:s|ed|ing)|watch(?:es|ed|ing)|gaze(?:s|d|ing)|blink(?:s|ed|ing)|laugh(?:s|ed|ing)|smil(?:es|ed|ing)|speak(?:s|spoke|ing)|call(?:s|ed|ing)|whisper(?:s|ed|ing)|bow(?:s|ed|ing)|clutch(?:es|ed|ing)|count(?:s|ed|ing)|lean(?:s|ed|ing)|enter(?:s|ed|ing)|exit(?:s|ed|ing)|approach(?:es|ed|ing)|freeze(?:s|d|ing)|howl(?:s|ed|ing)|throw(?:s|threw|ing))\b/i;
 const FRAME_GAZE_RE = /\b(?:look(?:s|ed|ing)?|watch(?:es|ed|ing)?|stare(?:s|d|ing)?|gaze(?:s|d|ing)?|eyes?\s+(?:fixed|locked|dragging|sliding|slide|turn(?:ed|ing)?|going|drawn))\b/i;
+// The lens, or someone outside the frame (optionally on a named side).
+const beyondFrame = (target) => target === 'camera' || /^offscreen(?:[_-](?:left|right|up|down|above|below|front|behind))?$/.test(target);
 const NOOP_ACTIONS = new Set(['idle']);
 // A missing change reason is ledger bookkeeping the video model never reads: report it, don't block.
 const MISSING_REASON = /缺 (?:establishing 或 )?\w+Reason$/;
@@ -1223,10 +1228,10 @@ export function continuityReport(board) {
           && !String(ledger.eyelineUnknownReason ?? '').trim()) {
           issues.push(`${cid} 的 frame 描述了明确视线，但 eyelineTarget 为空；需指向人物/道具/camera/offscreen 或说明待确认`);
         }
-        if (ledger.eyelineTarget && ledger.eyelineTarget !== 'camera' && ledger.eyelineTarget !== 'offscreen') {
+        if (ledger.eyelineTarget && !beyondFrame(ledger.eyelineTarget)) {
           const visibleSubjects = new Set([...characters, ...props]);
           if (!visibleSubjects.has(ledger.eyelineTarget)) {
-            issues.push(`${cid} 的 eyelineTarget「${ledger.eyelineTarget}」不在本镜人物/道具中`);
+            issues.push(`${cid} 的 eyelineTarget「${ledger.eyelineTarget}」不在本镜人物/道具中；可填本镜人物/道具 id、camera、offscreen 或 offscreen_left/offscreen_right`);
           }
         }
         if (!previous) {
@@ -1237,8 +1242,7 @@ export function continuityReport(board) {
           const currentSubjects = new Set([...characters, ...props]);
           const previousTarget = previous.ledger.eyelineTarget;
           if (previousTarget
-            && previousTarget !== 'camera'
-            && previousTarget !== 'offscreen'
+            && !beyondFrame(previousTarget)
             && !currentSubjects.has(previousTarget)
             && !String(ledger.eyelineBreakReason ?? '').trim()) {
             issues.push(`${cid} 未兑现前镜视线目标「${previousTarget}」，缺 eyelineBreakReason`);
@@ -1326,6 +1330,46 @@ function auditHint(evidence = {}) {
   return parts.length ? `（${parts.join('；')}）` : '';
 }
 
+/** A scene may span generation calls while remaining one uninterrupted take. */
+export function continuousTakeProblems(board, ctx = {}) {
+  const form = ctx.outline?.adaptation?.forms?.find((entry) => entry.form === 'scene_one_take' && entry.decision === 'keep');
+  if (!form) return [];
+  const problems = [];
+  const sceneIds = form.sceneIds;
+  if (sceneIds !== undefined) {
+    const known = new Set((ctx.outline.scenes ?? []).map((scene) => scene.id));
+    if (!Array.isArray(sceneIds) || !sceneIds.length || sceneIds.some((id) => !known.has(id))) {
+      return ['scene_one_take.sceneIds 必须是非空的 outline.scenes ID 列表；省略表示逐场连续拍摄'];
+    }
+    if (!ctx.script) return ['逐场连续镜头缺 script.json，无法核对 sceneIds'];
+  }
+  for (const episode of board?.episodes ?? []) {
+    const scenes = ctx.script?.episodes?.find((entry) => entry.ep === episode.ep)?.scenes ?? [];
+    let previous = null;
+    for (const segment of episode.segments ?? []) {
+      const sceneId = scenes[segment.sceneIndex - 1]?.sceneId;
+      if (!sceneIds || sceneIds.includes(sceneId)) {
+        if (segment.cuts?.length !== 1) problems.push(`${segment.id} 保留逐场连续镜头，每个生成段必须只有一个 cut`);
+        if (previous?.sceneIndex === segment.sceneIndex && segment.continuesFrom !== previous.id) {
+          problems.push(`${segment.id} 是同一连续镜头的下一生成段，continuesFrom 应为「${previous.id}」`);
+        }
+        const shot = h3Remainder(h3CutSlices(segment.h3Prompt ?? '', 1, board?.promptLang ?? 'en')[0] ?? '');
+        if (!/\b(?:single|one|continuous|uninterrupted)[ -]+(?:(?:continuous|uninterrupted)[ -]+)?(?:take|shot)\b|一镜到底|(?:连续|不间断)(?:镜头|拍摄)/i.test(shot)) {
+          problems.push(`${segment.id} 的 [Shot 1] 要明确写出连续、不间断拍摄`);
+        }
+        const cuts = /\bcamera\s+(?:hard\s+)?cuts?\b|\b(?:hard|jump)\s+cuts?\b|\bcut\s+to\b|\bmontage\b|\bshot[\s/-]*reverse[\s/-]*shot\b|(?:镜头|画面)(?:硬切|切到|切至|切换)|正反打/gi;
+        for (const match of shot.matchAll(cuts)) {
+          const before = shot.slice(0, match.index).split(/[.!?;\n]/).at(-1);
+          if (/\b(?:no|without|avoid|never|not)\s+(?:(?:any|hard|jump|camera|cuts?|edits?|and|or)[ ,/-]+)*$|(?:不|禁止|避免|无)$/i.test(before)) continue;
+          problems.push(`${segment.id} 的连续镜头提示词仍要求切镜：「${match[0]}」`);
+        }
+      }
+      previous = segment;
+    }
+  }
+  return problems;
+}
+
 export function gateReport(board, ctx = {}) {
   const gates = [];
   const add = (id, label, ok, detail = '') => gates.push({ id, label, ok, detail });
@@ -1348,7 +1392,7 @@ export function gateReport(board, ctx = {}) {
   // 配方卡库是可选挂载：ctx.recipes 为空就整门跳过（不是「没有 cut 带 recipe」就跳过）
   const recipes = ctx.recipes ?? null;
   let recipeRefs = 0;
-  const styleId = board?.style ?? DEFAULT_STYLE;
+  const styleId = canonicalStyle(board?.style ?? DEFAULT_STYLE);
   const style = STYLE_PRESETS[styleId];
   if (!style) bad.style.push(`style「${styleId}」不在预设里（${Object.keys(STYLE_PRESETS).join(' / ')}）`);
   // 提示词语言：默认英文——官方规范的口径（台词仍在 <d> 里保留原文）；'zh' 可切整条中文
@@ -1648,13 +1692,14 @@ export function gateReport(board, ctx = {}) {
         }
       }
 
-      // 每集总时长对齐剧本目标
-      if (sEp.targetSeconds > 0) {
+      // 每集总时长对齐剧本：有目标对目标，没定目标就对剧本预估（编剧定长）
+      const [refSeconds, refLabel] = episodeLength(sEp);
+      if (refSeconds > 0) {
         const total = (ep?.segments ?? []).reduce((n, s) => n + segSeconds(s), 0);
-        const lo = sEp.targetSeconds * (1 - params.tolerance);
-        const hi = sEp.targetSeconds * (1 + params.tolerance);
-        if (total < lo) bad.duration.push(`${label} 欠 ${r1(lo - total)} 秒（${r1(total)}s / 目标 ${sEp.targetSeconds}s）`);
-        if (total > hi) bad.duration.push(`${label} 超 ${r1(total - hi)} 秒（${r1(total)}s / 目标 ${sEp.targetSeconds}s）`);
+        const lo = refSeconds * (1 - params.tolerance);
+        const hi = refSeconds * (1 + params.tolerance);
+        if (total < lo) bad.duration.push(`${label} 欠 ${r1(lo - total)} 秒（${r1(total)}s / ${refLabel} ${refSeconds}s）`);
+        if (total > hi) bad.duration.push(`${label} 超 ${r1(total - hi)} 秒（${r1(total)}s / ${refLabel} ${refSeconds}s）`);
       }
     }
   }
@@ -1667,9 +1712,11 @@ export function gateReport(board, ctx = {}) {
 
   add('coverage', '剧本节拍被恰好一次、按顺序、连续认领（分镜级）', bad.coverage.length === 0, script ? bad.coverage.join('；') : SKIP_SCRIPT);
   add('segment-cap', `每段 ${params.minSegmentSeconds} ≤ 总秒数 ≤ ${params.maxSegmentSeconds}（视频大模型生成的单段时长上下限）`, eps.length > 0 && bad.segCap.length === 0, bad.segCap.join('；'));
-  add('cut-length', `每个分镜 ${params.minCutSeconds}–${params.maxCutSeconds} 秒——短剧的注意力节奏`, eps.length > 0 && bad.cutLen.length === 0, bad.cutLen.join('；'));
+  add('cut-length', `每个分镜 ${params.minCutSeconds}–${params.maxCutSeconds} 秒（可覆盖整段，按内容确定）`, eps.length > 0 && bad.cutLen.length === 0, bad.cutLen.join('；'));
+  const takeProblems = continuousTakeProblems(board, ctx);
+  add('continuous-take', '保留逐场连续镜头：场内不切镜，跨生成段承接尾帧', takeProblems.length === 0, takeProblems.length ? `[continuous-take] ${takeProblems.join('；')}` : '');
   add('dialogue-fit', '认领节拍的台词装得进分镜秒数', bad.fit.length === 0, script ? bad.fit.join('；') : SKIP_SCRIPT);
-  add('ep-duration', `每集总时长在剧本目标 ±${Math.round(params.tolerance * 100)}% 内`, bad.duration.length === 0, script ? bad.duration.join('；') : SKIP_SCRIPT);
+  add('ep-duration', `每集总时长在剧本目标（没定目标时为剧本预估）±${Math.round(params.tolerance * 100)}% 内`, bad.duration.length === 0, script ? bad.duration.join('；') : SKIP_SCRIPT);
   add('crowd', `单个分镜同框 ≤ ${params.maxOnScreen} 人，超了必须带拆解说明`, bad.crowd.length === 0, bad.crowd.join('；'));
   add('segment-id', '段号 E01-01 格式、按顺序连号', bad.id.length === 0, bad.id.join('；'));
   add('size-phrase', '景别短语写进分镜图提示词', bad.size.length === 0, bad.size.join('；'));
@@ -1712,12 +1759,7 @@ export function gateReport(board, ctx = {}) {
     ['h3-voiceover-exact-format', 'Ref2VA：画外音固定句式与紧随的闭唇说明完整'],
     ['style-consistency', 'Ref2VA：视频、分镜图与使用的角色和场景参考画风一致'],
     ['same-scene-continues-from', 'Ref2VA：同场相邻段从上一段尾帧接着拍（continuesFrom），首镜起幅接得上上一段末镜，换场不接'],
-    ['one-speaker-per-cut', '一个镜头只收一个人的台词，画外音单算一个声源'],
   ]) {
-    if (id === 'one-speaker-per-cut' && referenceAudit && !script) {
-      add(id, label, true, SKIP_SCRIPT);
-      continue;
-    }
     const failures = referenceAudit ? [
       ...referenceAudit.issues.filter((item) => item.rule === id).map((item) => `${item.location}: ${item.detail}${auditHint(item.evidence)}`),
       ...referenceAudit.skips.filter((item) => item.rule === id).map((item) => `${item.location}: ${item.reason}`),
@@ -1811,8 +1853,8 @@ export function seedFromScript(script, epRange = null, ctx = {}) {
   }
   return {
     source: script?.source ?? '',
-    style: ctx.cast?.style ?? ctx.art?.style ?? DEFAULT_STYLE,
-    styleSentence: STYLE_PRESETS[ctx.cast?.style ?? ctx.art?.style ?? DEFAULT_STYLE]?.sentence ?? '',
+    style: canonicalStyle(ctx.cast?.style ?? ctx.art?.style ?? DEFAULT_STYLE),
+    styleSentence: STYLE_PRESETS[canonicalStyle(ctx.cast?.style ?? ctx.art?.style ?? DEFAULT_STYLE)]?.sentence ?? '',
     stateContractVersion: script?.stateContractVersion ?? 1,
     continuityContractVersion: CONTINUITY_CONTRACT_VERSION,
     episodes,
@@ -1885,7 +1927,8 @@ export function slug(name) {
 const GATE_LABELS_EN = {
   'coverage': 'Every script beat claimed exactly once, in order, contiguous (cut level)',
   'segment-cap': 'Each segment 0 < total ≤ {1}s (the single-generation cap)',
-  'cut-length': 'Every cut {0}–{1}s — the short-drama attention rhythm',
+  'cut-length': 'Every cut {0}–{1}s — may fill the generation segment, timed to its content',
+  'continuous-take': 'Kept scene take: uninterrupted filming within each scene, tail-frame continuation between generation calls',
   'dialogue-fit': 'Dialogue of the claimed beats fits within the cut duration',
   'ep-duration': 'Episode total within ±{0}% of the script\'s target',
   'crowd': 'At most {0} characters on screen per cut; more requires a breakdown note',
@@ -1940,7 +1983,7 @@ const I18N = {
     kpi: {
       segments: '生成段', segmentsSub: (cap) => `一段一次调用，上限 ${cap} 秒`,
       cuts: '分镜', cutsSub: (avg) => `平均 ${avg} 秒一切`,
-      time: '预估总时长', timeSub: (t) => `目标 ${t}`,
+      time: '预估总时长', timeSub: (t) => `目标 ${t}`, timeSubScript: (t) => `剧本预估 ${t}`,
       batches: '生成批次', batchesSub: '同场景同光照共用环境参考图',
       lines: '台词段', linesSub: '其余是纯画面段',
     },
@@ -1953,7 +1996,7 @@ const I18N = {
     segmentsNote: '一段 = 一次生成：主分镜图钉 0.00 秒，子分镜图钉各自切点',
     batchesNote: '自动汇总 · 同批段共用同一张环境参考图',
     dialogueNote: '自动汇总 · TTS 音频对到哪一段的第几切',
-    epHead: (nSeg, nCut, total, target) => `${nSeg} 段 ${nCut} 切 · 共 ${total} 秒 / 目标 ${target} 秒`,
+    epHead: (nSeg, nCut, total, target, byScript) => `${nSeg} 段 ${nCut} 切 · 共 ${total} 秒 / ${byScript ? '剧本预估' : '目标'} ${target} 秒`,
     segHead: (total, n) => `${total} 秒 · ${n} 个分镜`,
     secBadge: (secs, n) => `${secs}s · ${n} 切`,
     rhythmVal: (nSeg, nCut, secs) => `${nSeg} 段 ${nCut} 切 · ${secs}s`,
@@ -1987,7 +2030,7 @@ const I18N = {
     fmtMin: (sec) => `${Math.floor(sec / 60)} 分 ${Math.round(sec % 60)} 秒`,
     unitSeg: '段',
     unitCut: '切',
-    colophon: '分镜由模型依据剧本切分：段 = 一次生成（≤15 秒），分镜 = 段内 2–5 秒的剪切，每个分镜一张关键帧图。对齐指令、切点时刻、台词、提示词纪律全部由脚本确定性对账。分镜图出图走 codex，环境与角色设定图当参考图。',
+    colophon: '分镜依据剧本与已确认的拍摄形式设计：段 = 一次生成调用，单镜可覆盖整段，生成边界不自动成为切点。对齐指令、切点时刻、台词、提示词纪律由脚本确定性对账。分镜图出图走 codex，环境与角色设定图当参考图。',
   },
   en: {
     langCode: 'en',
@@ -2001,7 +2044,7 @@ const I18N = {
     kpi: {
       segments: 'Segments', segmentsSub: (cap) => `one generation call each, capped at ${cap}s`,
       cuts: 'Cuts', cutsSub: (avg) => `${avg}s per cut on average`,
-      time: 'Estimated total', timeSub: (t) => `target ${t}`,
+      time: 'Estimated total', timeSub: (t) => `target ${t}`, timeSubScript: (t) => `script estimate ${t}`,
       batches: 'Generation batches', batchesSub: 'same scene + lighting share one environment reference',
       lines: 'Dialogue segments', linesSub: 'the rest are picture-only',
     },
@@ -2014,7 +2057,7 @@ const I18N = {
     segmentsNote: 'one segment = one generation: the master frame pins 0.00s, sub-frames pin their own cut marks',
     batchesNote: 'auto-computed · segments in a batch share one environment reference image',
     dialogueNote: 'auto-computed · which segment and cut each TTS clip lands on',
-    epHead: (nSeg, nCut, total, target) => `${nSeg} segments ${nCut} cuts · ${total}s total / ${target}s target`,
+    epHead: (nSeg, nCut, total, target, byScript) => `${nSeg} segments ${nCut} cuts · ${total}s total / ${target}s ${byScript ? 'script estimate' : 'target'}`,
     segHead: (total, n) => `${total}s · ${n} cuts`,
     secBadge: (secs, n) => `${secs}s · ${n} cuts`,
     rhythmVal: (nSeg, nCut, secs) => `${nSeg} seg ${nCut} cuts · ${secs}s`,
@@ -2048,7 +2091,7 @@ const I18N = {
     fmtMin: (sec) => `${Math.floor(sec / 60)} min ${Math.round(sec % 60)} s`,
     unitSeg: 'seg',
     unitCut: 'cuts',
-    colophon: 'Cut by the model from the script: a segment = one generation call (≤15s), a cut = a 2–5s edit inside it, one keyframe per cut. Alignment lines, cut marks, dialogue and prompt discipline are all audited deterministically by the script. Frames are generated through codex with the scene and character sheets as references.',
+    colophon: 'Shots follow the script and approved shooting forms: a segment is one generation call, and one shot may fill it. Generation boundaries do not automatically become edits. Alignment lines, cut marks, dialogue and prompt discipline are audited deterministically. Frames are generated through codex with scene and character sheets as references.',
   },
 };
 
@@ -2108,7 +2151,7 @@ export function renderMarkdown(board, ctx = {}) {
   for (const [i, ep] of eps.entries()) {
     const st = stats.episodes[i];
     const sEp = expanded.get(ep.ep);
-    out.push(`## E${String(ep.ep).padStart(2, '0')}`, '', `> ${t.epHead(st.segments, st.cuts, st.totalSeconds, st.target)}`, '');
+    out.push(`## E${String(ep.ep).padStart(2, '0')}`, '', `> ${t.epHead(st.segments, st.cuts, st.totalSeconds, st.target, st.scriptLength)}`, '');
     for (const seg of ep.segments) {
       const scene = sEp?.scenes?.[seg.sceneIndex - 1];
       out.push(`### ${seg.id} · ${scene ? t.withLighting(n.scene(scene.sceneId), scene.lighting) : '?'} · ${t.segHead(segSeconds(seg), seg.cuts.length)}`, '');
@@ -2283,7 +2326,7 @@ ${cutRows}
       return `<section class="ep" id="ep-${ep.ep}">
   <header class="ep-h">
     <span class="ep-n">E${String(ep.ep).padStart(2, '0')}</span>
-    <span class="ep-est">${esc(t.epHead(st.segments, st.cuts, st.totalSeconds, st.target))}</span>
+    <span class="ep-est">${esc(t.epHead(st.segments, st.cuts, st.totalSeconds, st.target, st.scriptLength))}</span>
   </header>
   <div class="shots clip">
     <div class="seggrid">
@@ -2537,7 +2580,7 @@ td.serif{font-family:var(--serif)}
 <div class="kpis">
   <div class="kpi accent"><div class="l">${esc(t.kpi.segments)}</div><div class="v">${stats.totals.segments} <small>${esc(t.unitSeg)}</small></div><div class="d">${esc(t.kpi.segmentsSub(params.maxSegmentSeconds))}</div></div>
   <div class="kpi"><div class="l">${esc(t.kpi.cuts)}</div><div class="v">${stats.totals.cuts} <small>${esc(t.unitCut)}</small></div><div class="d">${esc(t.kpi.cutsSub(stats.totals.avgCutSeconds))}</div></div>
-  <div class="kpi"><div class="l">${esc(t.kpi.time)}</div><div class="v">${esc(fmtMin(stats.totals.seconds))}</div><div class="d">${esc(t.kpi.timeSub(fmtMin(stats.totals.targetSeconds)))}</div></div>
+  <div class="kpi"><div class="l">${esc(t.kpi.time)}</div><div class="v">${esc(fmtMin(stats.totals.seconds))}</div><div class="d">${esc((stats.totals.scriptLength ? t.kpi.timeSubScript : t.kpi.timeSub)(fmtMin(stats.totals.targetSeconds)))}</div></div>
   <div class="kpi"><div class="l">${esc(t.kpi.batches)}</div><div class="v">${stats.batches.length}</div><div class="d">${esc(t.kpi.batchesSub)}</div></div>
   <div class="kpi"><div class="l">${esc(t.kpi.lines)}</div><div class="v">${stats.totals.withLines} <small>${esc(t.unitSeg)}</small></div><div class="d">${esc(t.kpi.linesSub)}</div></div>
 </div>
@@ -2791,7 +2834,7 @@ function main(argv) {
     }
     for (const g of gateReport(board, ctx)) if (g.advisory) console.log(`⚠️ ${g.label}：${g.detail}`);
     const st = computeStats(board, ctx.script);
-    console.log(`✓ ${st.episodes.length} 集 / ${st.totals.segments} 段 / ${st.totals.cuts} 个分镜全部通过校验（共 ${st.totals.seconds}s / 目标 ${st.totals.targetSeconds}s / ${st.batches.length} 个生成批次）`);
+    console.log(`✓ ${st.episodes.length} 集 / ${st.totals.segments} 段 / ${st.totals.cuts} 个分镜全部通过校验（共 ${st.totals.seconds}s / ${st.totals.scriptLength ? '剧本预估' : '目标'} ${st.totals.targetSeconds}s / ${st.batches.length} 个生成批次）`);
     return;
   }
 

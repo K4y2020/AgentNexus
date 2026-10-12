@@ -432,6 +432,86 @@ async def test_generation_keeps_hand_edited_canvas_prompt(bundle, action, error_
     v3.validate_generation.assert_not_called()
 
 
+def _sha(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+@pytest.mark.asyncio
+@respx.mock
+@pytest.mark.parametrize(
+    ("canvas_prompt", "recorded", "sync", "error_code"),
+    [
+        ("old pipeline prompt", "old pipeline prompt", True, None),
+        ("hand edited", "old pipeline prompt", True, "CINE_GENERATION_NODE_PROMPT_EDITED"),
+        (
+            "old pipeline prompt",
+            "old pipeline prompt",
+            False,
+            "CINE_GENERATION_NODE_PROMPT_MISMATCH",
+        ),
+    ],
+)
+async def test_requested_preflight_sync_writes_only_a_pipeline_written_prompt(
+    monkeypatch, tmp_path, canvas_prompt, recorded, sync, error_code
+):
+    from agentnexus.seedance import production_gate
+
+    mock_session(tmp_path)
+    monkeypatch.setattr(
+        production_gate,
+        "validate_submission",
+        AsyncMock(return_value={"prompt": "repaired prompt", "report_paths": []}),
+    )
+    pointer = "/episodes/0/segments/0/h3Prompt"
+    v3 = AsyncMock()
+    v3.get_snapshot.return_value = {
+        "revision": 4,
+        "nodes": [
+            {
+                "id": "shot",
+                "data": {
+                    "prompt": canvas_prompt,
+                    "importedPromptSha256": _sha(recorded),
+                    "production_stage": "storyboard",
+                    "production_pointer": pointer,
+                },
+            }
+        ],
+    }
+    v3.submit_command.return_value = {"accepted": True}
+    v3.validate_generation.return_value = {"model": "video-model", "referenceCount": 3}
+    async with httpx.AsyncClient(base_url=SERVER) as client:
+        result = await execute_seedance_canvas_edit(
+            client,
+            "topic",
+            "validate_generation",
+            project_id="project",
+            node_id="shot",
+            generation_kind="video",
+            sync_prompt=sync,
+            production_stage="storyboard",
+            production_pointer=pointer,
+            trusted_skills_dir=SKILLS,
+            seedance_client=v3,
+        )
+    if error_code:
+        assert result["error_code"] == error_code
+        v3.submit_command.assert_not_called()
+        v3.validate_generation.assert_not_called()
+        return
+    assert result["status"] == "validated" and result["prompt_synced"] is True
+    update = v3.submit_command.call_args.args[1]
+    assert update["type"] == "canvas.update_node" and update["nodeId"] == "shot"
+    assert update["expectedRevision"] == 4
+    data = update["patch"]["data"]
+    assert data["prompt"] == "repaired prompt"
+    # A second repair round must still see the card as pipeline-written.
+    assert data["importedPromptSha256"] == _sha("repaired prompt")
+    assert data["production_pointer"] == pointer
+    command = v3.validate_generation.call_args.args[1]
+    assert command["nodeId"] == "shot" and command["expectedPrompt"] == "repaired prompt"
+
+
 @pytest.mark.asyncio
 @respx.mock
 async def test_missing_state_reference_returns_production_error(monkeypatch, tmp_path):

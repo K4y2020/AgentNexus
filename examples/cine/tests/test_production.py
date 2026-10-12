@@ -29,6 +29,13 @@ def test_init_is_incomplete_native_outline_and_never_overwrites(tmp_path):
     assert (tmp_path / "outline.json").read_bytes() == before
 
 
+def test_init_without_a_length_leaves_it_to_the_script(tmp_path):
+    production.init_outline(tmp_path, "A film", 1, None, "rescue", "抽核")
+    assert "minutesPerEpisode" not in production.read(tmp_path / "outline.json")["params"]
+    with pytest.raises(ValueError):
+        production.init_outline(tmp_path / "zero", "A film", 1, 0, "rescue", "抽核")
+
+
 @pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")
 @pytest.mark.parametrize("stage", ["cast", "art", "script", "storyboard"])
 def test_seed_reuses_native_cli(tmp_path, stage):
@@ -43,6 +50,37 @@ def test_seed_reuses_native_cli(tmp_path, stage):
     assert result["command"][2] == "seed"
     with pytest.raises(FileExistsError):
         production.seed(tmp_path, stage)
+
+
+def test_seed_style_prefers_cast_then_outline_then_the_source(tmp_path):
+    assert production.seed_style(tmp_path, "cast") == (None, None)
+    production.atomic_json(
+        tmp_path / "source-material.json", {"visual_style": {"style": "photoreal"}}
+    )
+    assert production.seed_style(tmp_path, "cast") == ("photoreal", "source")
+    production.atomic_json(tmp_path / "outline.json", {"params": {"style": "ghibli"}})
+    assert production.seed_style(tmp_path, "cast") == ("ghibli", "outline")
+    production.atomic_json(tmp_path / "cast.json", {"style": "realistic"})
+    assert production.seed_style(tmp_path, "art") == ("semi-realistic", "cast")
+    assert production.seed_style(tmp_path, "cast") == ("ghibli", "outline")
+    production.atomic_json(tmp_path / "outline.json", {"params": {"style": "oil painting"}})
+    production.atomic_json(tmp_path / "source-material.json", {"visual_style": {"style": "other"}})
+    assert production.seed_style(tmp_path, "cast") == (None, None)
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")
+def test_cast_and_art_seeds_start_from_the_source_medium(tmp_path):
+    example(tmp_path, "outline")
+    material = tmp_path / "source-material.json"
+    production.atomic_json(material, {"visual_style": {"style": "photoreal"}})
+    result = production.seed(tmp_path, "cast")
+    assert production.read(tmp_path / "cast.json")["style"] == "photoreal"
+    assert (result["style"], result["style_from"]) == ("photoreal", "source")
+    assert result["command"][-2:] == ["--style", "photoreal"]
+    assert result["input_hashes"][str(material)] == production.digest(material)
+    result = production.seed(tmp_path, "art")
+    assert production.read(tmp_path / "art.json")["style"] == "photoreal"
+    assert result["style_from"] == "cast"
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="native CLI requires node")

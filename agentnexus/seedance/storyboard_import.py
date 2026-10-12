@@ -17,17 +17,21 @@ from .asset_anchors import (  # noqa: F401 - re-exported for callers and tests
     _card_label,
     _character_entry,
     _character_sheet,
+    _character_state,
     _legacy_scene_nodes,
     _missing_character,
     _missing_visual_assets,
     _needs_outline,
     _referenced_characters,
     _referenced_scenes,
+    _referenced_states,
     _resolve_cast,
     _resolve_scene_id,
     _scene_entry,
     _scene_node,
     _scene_prompt,
+    _segment_character_states,
+    _state_nodes,
     _word,
 )
 from .client import SeedanceError
@@ -227,6 +231,19 @@ def _image_pointer(document: dict, collection: str, entry: dict, fields: tuple[s
             for field in fields:
                 if str(image.get(field) or "").strip():
                     return f"/{collection}/{index}/image/{field}"
+    raise ProductionRejected("CINE_IMPORT_ASSETS_MISSING")
+
+
+def _state_pointer(document: dict, card: dict, state: dict) -> str:
+    """Production pointer of a costume state's sheet inside its character card."""
+    for c_index, candidate in enumerate(document.get("characters", [])):
+        if candidate is not card:
+            continue
+        for s_index, row in enumerate(card.get("states") or []):
+            if row is state:
+                image = state.get("image") if isinstance(state.get("image"), dict) else {}
+                field = "sheet" if str(image.get("sheet") or "").strip() else "prompt"
+                return f"/characters/{c_index}/states/{s_index}/image/{field}"
     raise ProductionRejected("CINE_IMPORT_ASSETS_MISSING")
 
 
@@ -830,6 +847,135 @@ async def _connect_once(client, project_id, edges: set, source, target, kind, ta
     edges.add((source, target, kind))
 
 
+RETIRED_TITLE_PREFIX = "[已作废] "
+
+
+def _media_index(snapshot: dict) -> dict[str, dict] | None:
+    entries = snapshot.get("node_media")
+    if not isinstance(entries, list):
+        return None
+    return {m["nodeId"]: m for m in entries if isinstance(m, dict) and m.get("nodeId")}
+
+
+def _holds_user_work(node: dict, media: dict[str, dict] | None) -> bool:
+    """Whether a card holds generated media (even hidden), any job, or a prompt edited by hand."""
+    data = node.get("data") or {}
+    if data.get("activeOutputRef") or data.get("assetRef"):
+        return True
+    if node.get("type") == "video_prompt" and _prompt_edited_on_canvas(data):
+        return True
+    state = (media or {}).get(str(node.get("id")))
+    if state is None:
+        return True  # the server did not report this card's media: never delete blind
+    return bool(
+        state.get("outputUrl")
+        or state.get("latestJob")
+        or state.get("pendingJobCount")
+        or state.get("mediaState") not in (None, "no_output")
+    )
+
+
+def _stale_storyboard_nodes(
+    snapshot: dict, kept: set, boards: set, used_frames: set
+) -> tuple[list[dict], list[dict]]:
+    """Imported cards whose segment left the storyboard, and last-frame slots no segment uses."""
+    derived = {
+        e.get("to")
+        for e in snapshot.get("edges") or []
+        if isinstance(e, dict) and e.get("kind") == "derives" and e.get("from") in boards
+    }
+    imported = [
+        n
+        for n in snapshot.get("nodes", [])
+        if n.get("type") == "video_prompt"
+        and n.get("id") in derived
+        and (n.get("data") or {}).get("production_stage") == "storyboard"
+    ]
+    cards = [
+        n for n in imported if (n.get("data") or {}).get("segmentId") not in (None, "", *kept)
+    ]
+    removed = {n["id"] for n in cards}
+    targets = {n["id"] for n in imported}
+    slots = [
+        n
+        for n in snapshot.get("nodes", [])
+        if n.get("type") == "image"
+        and n.get("id") not in used_frames
+        and (
+            (n.get("data") or {}).get("continuationTargetNodeId") in targets
+            or (n.get("data") or {}).get("continuationSourceNodeId") in removed
+        )
+    ]
+    return cards, slots
+
+
+async def _retire_removed_segments(
+    client, project_id, storyboard: dict, episode_nodes: dict, used_frames: set
+) -> dict[str, list[str]]:
+    """Clear what a changed storyboard left behind without losing anything generated.
+
+    Cards of segments that are gone and last-frame slots no segment uses are deleted
+    when empty; a card holding media or a hand edit is renamed 已作废 and unbound from
+    the storyboard instead, and a filled last frame stays as it is.
+    """
+    kept = {
+        seg.get("id") for ep in storyboard.get("episodes", []) for seg in ep.get("segments", [])
+    }
+    boards = {str(node_id) for node_id in episode_nodes.values() if node_id}
+    cards, slots = _stale_storyboard_nodes(
+        await client.get_snapshot(project_id), kept, boards, used_frames
+    )
+    report: dict[str, list[str]] = {"removed": [], "retired": [], "frames": [], "conflicts": []}
+    for node in [*slots, *cards]:
+        latest = await client.get_snapshot(project_id)
+        current = next((n for n in latest.get("nodes", []) if n.get("id") == node["id"]), None)
+        if current is None:
+            continue
+        is_card = current.get("type") == "video_prompt"
+        data = current.get("data") or {}
+        label = str(data.get("segmentId") if is_card else current.get("title") or current["id"])
+        if not _holds_user_work(current, _media_index(latest)):
+            command = {"type": "canvas.delete_node", "nodeId": current["id"]}
+            outcome = "removed" if is_card else "frames"
+        elif is_card:
+            title = str(current.get("title") or label)
+            unbound = {
+                k: v
+                for k, v in data.items()
+                if k not in ("production_stage", "production_pointer")
+            }
+            command = {
+                "type": "canvas.update_node",
+                "nodeId": current["id"],
+                "patch": {
+                    "title": title
+                    if title.startswith(RETIRED_TITLE_PREFIX)
+                    else RETIRED_TITLE_PREFIX + title,
+                    "data": {**unbound, "retired": True},
+                },
+            }
+            outcome = "retired"
+        else:
+            continue  # a filled last frame is an output and stays as it is
+        command["commandId"] = f"cine-prune-{uuid.uuid4().hex[:8]}"
+        if latest.get("revision") is not None:
+            command["expectedRevision"] = latest["revision"]
+        try:
+            result = await client.submit_command(project_id, command)
+        except SeedanceError as exc:
+            if exc.code == "CANVAS_NODE_NOT_FOUND":
+                continue
+            if exc.code != "REVISION_CONFLICT":
+                raise
+            result = {"accepted": False}
+        report[outcome if result.get("accepted") else "conflicts"].append(label)
+        if outcome == "frames" and result.get("accepted"):
+            # The card it pointed at may stay; its exclusion of the slot is now moot.
+            target = data.get("continuationTargetNodeId")
+            await _exclude_references(client, project_id, target, set(), {f"node:{node['id']}"})
+    return report
+
+
 async def import_storyboard(
     server,
     session_id,
@@ -1017,7 +1163,9 @@ async def import_storyboard(
         video_cards = {
             (n.get("data") or {}).get("segmentId"): n
             for n in curr_nodes.values()
-            if n.get("type") == "video_prompt" and (n.get("data") or {}).get("segmentId")
+            if n.get("type") == "video_prompt"
+            and (n.get("data") or {}).get("segmentId")
+            and not (n.get("data") or {}).get("retired")
         }
         char_nodes = _asset_nodes(list(curr_nodes.values()), "characterId")
         scene_nodes = _asset_nodes(list(curr_nodes.values()), "sceneId")
@@ -1068,6 +1216,56 @@ async def import_storyboard(
             )
             char_nodes[cid] = new_cnode
 
+        # Provision a sheet card for each costume state on screen. It references the
+        # main sheet, so the generated state keeps that face.
+        state_nodes = _state_nodes(list(curr_nodes.values()))
+        referenced_states = _referenced_states(segments)
+        for cid, state_id in referenced_states:
+            char_def = cast_index.cards.get(cid)
+            state_def = _character_state(char_def, state_id) if char_def else None
+            node = state_nodes.get((cid, state_id))
+            if char_def and state_def and _character_sheet(state_def):
+                pointer = _state_pointer(cast_doc, char_def, state_def)
+                if node is None:
+                    label = str(state_def.get("label") or state_id).strip()
+                    node, _ = await _create_target(
+                        client,
+                        bound,
+                        node_type="image_prompt",
+                        title=f"{char_def.get('name') or cid} · {label[:24]} · 状态三视图",
+                        data={
+                            "characterId": cid,
+                            "characterState": state_id,
+                            "prompt": _character_sheet(state_def),
+                            "brief": label,
+                            "aspectRatio": "16:9",
+                            "generationKind": "image",
+                            "productionStage": "cast",
+                            "production_stage": "cast",
+                            "production_pointer": pointer,
+                            "role": "character_sheet",
+                        },
+                    )
+                    state_nodes[(cid, state_id)] = node
+                else:
+                    await _ensure_node_binding(client, bound, node["id"], "cast", pointer)
+            elif node is None:
+                # Validated above; only reachable if the canvas changed meanwhile.
+                raise ProductionRejected(
+                    "CINE_IMPORT_ASSETS_MISSING",
+                    {"problems": [f"Character {cid} state {state_id} has no sheet."]},
+                )
+            if cid in char_nodes:
+                await _connect_once(
+                    client,
+                    bound,
+                    edges,
+                    char_nodes[cid]["id"],
+                    node["id"],
+                    "references",
+                    f"cs-{cid}",
+                )
+
         # Provision scene concept cards missing from the canvas.
         for sid, s_idx in referenced_scenes.items():
             scene_def = _scene_entry(art_doc, sid, s_idx)
@@ -1112,6 +1310,7 @@ async def import_storyboard(
             scene_nodes[sid] = new_snode
 
         prompts_aligned = 0
+        used_frames: set[str] = set()
         if subject_judge is None:
             subject_judge = _default_subject_judge
         for ep_index, ep in enumerate(storyboard.get("episodes", [])):
@@ -1194,15 +1393,21 @@ async def import_storyboard(
 
                 if sb_node_id:
                     await _connect_once(client, bound, edges, sb_node_id, card_id, "derives", "vp")
-                segment_characters = dict.fromkeys(
-                    name for cut in cuts for name in cut.get("characters") or [] if name
-                )
-                for cid in segment_characters:
-                    cnode = char_nodes.get(cid)
-                    if cnode:
-                        await _connect_once(
-                            client, bound, edges, cnode["id"], card_id, "references", f"c-{cid}"
+                # Each character is referenced through the sheet of the costume worn here.
+                segment_assets: dict[str, str] = {}
+                for cid, states in _segment_character_states(seg).items():
+                    for state_id in states:
+                        cnode = (
+                            char_nodes.get(cid)
+                            if state_id == "default"
+                            else state_nodes.get((cid, state_id))
                         )
+                        if cnode:
+                            segment_assets[cnode["id"]] = cid
+                for node_id, cid in segment_assets.items():
+                    await _connect_once(
+                        client, bound, edges, node_id, card_id, "references", f"c-{cid}"
+                    )
                 s_idx = seg.get("sceneIndex")
                 sc_id = _resolve_scene_id(script, ep.get("ep"), s_idx) if s_idx else None
                 snode = _scene_node(
@@ -1238,10 +1443,9 @@ async def import_storyboard(
                         client, bound, edges, frame["id"], card_id, "references", f"lf-{seg_id}"
                     )
                     frame_ref = f"node:{frame['id']}"
+                    used_frames.add(frame["id"])
                     frame_entities = {frame_ref: ("frame", str(continued_from))}
-                wanted = {
-                    char_nodes[cid]["id"] for cid in segment_characters if cid in char_nodes
-                } | ({snode["id"]} if snode else set())
+                wanted = set(segment_assets) | ({snode["id"]} if snode else set())
                 snapshot = await client.get_snapshot(bound)
                 linked = {
                     e.get("from")
@@ -1301,6 +1505,7 @@ async def import_storyboard(
                                     [
                                         *curr_nodes.values(),
                                         *char_nodes.values(),
+                                        *state_nodes.values(),
                                         *scene_nodes.values(),
                                     ],
                                     referenced_scenes,
@@ -1348,6 +1553,11 @@ async def import_storyboard(
                                 raise ProductionRejected("CINE_IMPORT_ALIGNMENT_REJECTED", update)
                             seg["h3Prompt"] = aligned_prompt
                             prompts_aligned += 1
+
+        pruned = await _retire_removed_segments(
+            client, bound, storyboard, episode_nodes, used_frames
+        )
+        conflicts.extend(pruned["conflicts"])
 
         if prompts_aligned > 0 and storyboard_path.is_file():
             if hashlib.sha256(storyboard_path.read_bytes()).hexdigest() != hashes[storyboard_path]:
@@ -1401,11 +1611,32 @@ async def import_storyboard(
         "linked as references). Visual character sheets must be reviewed before submitting "
         "video generation to ensure character consistency across cuts."
     )
+    if referenced_states:
+        next_step += (
+            f" {len(referenced_states)} costume-state sheet card(s) reference their character's "
+            "main sheet; generate the main sheet first."
+        )
     if preserved:
         next_step += (
             " Left unchanged because their prompts were edited on the canvas after the last "
             f"import: {', '.join(preserved)}. Compare them with the new storyboard "
             "before generation."
+        )
+    if pruned["removed"]:
+        next_step += (
+            " Deleted the cards of segments the storyboard no longer has; nothing had been "
+            f"generated on them: {', '.join(pruned['removed'])}."
+        )
+    if pruned["frames"]:
+        next_step += (
+            f" Deleted {len(pruned['frames'])} empty last-frame slot(s) that no segment "
+            "continues from any more."
+        )
+    if pruned["retired"]:
+        next_step += (
+            f" Renamed {RETIRED_TITLE_PREFIX.strip()} and unbound, not deleted, because they hold "
+            "generated media or canvas edits while their segments left the storyboard: "
+            f"{', '.join(pruned['retired'])}."
         )
     if conflicts:
         next_step += (
@@ -1427,8 +1658,12 @@ async def import_storyboard(
         "receipt": {
             **receipt,
             "character_assets_linked": len(char_nodes),
+            "character_state_assets_linked": len(referenced_states),
             "scene_assets_linked": len(scene_nodes),
             "preserved_edited_cards": preserved,
+            "removed_stale_cards": pruned["removed"],
+            "removed_stale_frames": len(pruned["frames"]),
+            "retired_stale_cards": pruned["retired"],
             "update_conflicts": conflicts,
             "subject_alignment_review": alignment_review,
         },

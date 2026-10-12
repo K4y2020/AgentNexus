@@ -137,6 +137,7 @@ def source_fixture(root):
         "story/r1.json": {
             "source_id": "source",
             "revision_id": "r1",
+            "forms": [],
             "characters": ["unknown"],
             "summary": {
                 "premise": "observed draft",

@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { artworkMedium } from '../../_shared/cine-common.mjs';
 import {
   CAMERA_MOVES,
   castView,
@@ -121,7 +122,9 @@ eq(stats.dialogue.length, 19, '第 1 集 19 句台词全部对到段和切');
 ok(stats.dialogue.every((d) => /^E01-\d{2}$/.test(d.segment) && d.cut >= 1), '对齐单带段号和切序');
 eq(stats.episodes[0].withLines, 10, '台词段计数——本样例每段都带台词，纯画面收在分镜级');
 eq(paramsOf({}).maxSegmentSeconds, DEFAULT_PARAMS.maxSegmentSeconds, '默认段上限 15 秒');
-eq(paramsOf({}).maxCutSeconds, 5, '默认分镜上限 5 秒');
+eq(paramsOf({}).maxCutSeconds, 15, '默认单镜可覆盖完整 H3 生成段');
+eq(paramsOf({ params: { maxSegmentSeconds: 20 } }).maxCutSeconds, 20, '单镜上限跟随提供商生成段上限');
+eq(paramsOf({ params: { maxSegmentSeconds: 8 } }).maxCutSeconds, 8, '较短的生成段同时限制单镜');
 eq(paramsOf({ params: { maxCutSeconds: 4 } }).maxCutSeconds, 4, '分镜上限可调');
 
 /* ---------------- 台词必须落在认领它的镜头 ---------------- */
@@ -224,6 +227,12 @@ eq(gateReport(FIXTURE, CTX).length, 32, '三十二道门');
   const eyeIssues = continuityReport(eyeBreak);
   ok(eyeIssues.advisories.join('；').includes('eyelineBreakReason'), 'B：视线目标未在下一镜兑现时提示说明切断原因');
 
+  const sideOff = structuredClone(bad);
+  sideOff.episodes[0].segments[0].cuts[0].continuity.eyelineTarget = 'offscreen_left';
+  ok(!continuityReport(sideOff).detail.includes('不在本镜人物/道具中'), 'B：看向画外一侧（offscreen_left）是合法视线目标');
+  sideOff.episodes[0].segments[0].cuts[0].continuity.eyelineTarget = 'window';
+  ok(continuityReport(sideOff).detail.includes('可填本镜人物/道具 id、camera、offscreen'), 'B：非法视线目标的报错列出可填的值');
+
   const proseGap = structuredClone(bad);
   proseGap.episodes[0].segments[0].cuts[0].frame =
     'medium shot of C01 seizing C02 wrist while C02 looks toward C01';
@@ -322,8 +331,9 @@ eq(gateReport(FIXTURE, CTX).length, 32, '三十二道门');
   const doc = clone(FIXTURE);
   doc.episodes[0].segments[0].cuts[0].seconds = 6;
   const g = gate(doc, 'cut-length');
-  ok(!g.ok, '分镜超 5 秒被拦——3 秒节奏是硬门');
-  ok(g.detail.includes('E01-01#1'), '点名到切');
+  ok(g.ok, '6 秒镜头不因短剧节奏被迫切开');
+  doc.episodes[0].segments[0].cuts[0].seconds = 16;
+  ok(!gate(doc, 'cut-length').ok, '单镜仍不能超过当前生成段上限');
 }
 {
   const doc = clone(FIXTURE);
@@ -581,15 +591,15 @@ for (const block of ['<d>The ferry is ready.</d>', '<d>[Chinese] The ferry is re
 
 // style-phrase — 同剧分镜图画风不许漂
 {
-  eq(DEFAULT_STYLE, 'realistic', '默认半写实');
-  ok(STYLE_PRESETS.realistic.phrase && STYLE_PRESETS.ghibli.phrase, '预设带风格短语');
+  eq(DEFAULT_STYLE, 'semi-realistic', '默认半写实');
+  ok(STYLE_PRESETS['semi-realistic'].phrase && STYLE_PRESETS.ghibli.phrase, '预设带风格短语');
   const doc = clone(FIXTURE);
   doc.style = '油画';
   ok(!gate(doc, 'style-phrase').ok, '不在预设里的风格被拦');
 }
 {
   const doc = clone(FIXTURE);
-  doc.episodes[0].segments[0].cuts[0].frame = doc.episodes[0].segments[0].cuts[0].frame.replace(STYLE_PRESETS.realistic.phrase, 'cinematic image');
+  doc.episodes[0].segments[0].cuts[0].frame = doc.episodes[0].segments[0].cuts[0].frame.replace(STYLE_PRESETS['semi-realistic'].phrase, 'cinematic image');
   const g = gate(doc, 'style-phrase');
   ok(!g.ok, '分镜图提示词缺风格短语被拦');
   ok(g.detail.includes('E01-01#1'), '点名到切');
@@ -816,6 +826,18 @@ ok(validateStoryboard({ source: 'x', episodes: [] }).some((p) => p.includes('epi
 
 const seeded = seedFromScript(SCRIPT);
 eq(seeded.source, '渡口', 'seed 带剧名');
+{
+  // 分镜画风跟人物卡走；旧名 realistic 写成新名，句子不变
+  const old = seedFromScript(SCRIPT, null, { cast: { style: 'realistic' } });
+  eq(old.style, 'semi-realistic', 'seed 把人物卡旧名写成新名');
+  eq(old.styleSentence, STYLE_PRESETS['semi-realistic'].sentence, '半写实风格句不变');
+  const photo = seedFromScript(SCRIPT, null, { cast: { style: 'photoreal' } });
+  eq(photo.style, 'photoreal', 'seed 继承写实画风');
+  eq(photo.styleSentence, STYLE_PRESETS.photoreal.sentence, 'seed 写入写实风格句');
+  eq(artworkMedium(STYLE_PRESETS.photoreal.sentence).join(','), 'live-action', '写实风格句只有实拍一种媒介');
+  ok(!/film[\s-]+still/i.test(STYLE_PRESETS.photoreal.sentence), '写实风格句不写 film still');
+  ok(artworkMedium(STYLE_PRESETS.photoreal.phrase).join(',') === 'live-action', '写实分镜图短语是实拍媒介');
+}
 eq(seeded.episodes.length, 6, 'seed 全六集');
 eq(seeded.episodes[0].segments.length, 0, 'segments 留空给模型切');
 eq(seeded.episodes[0].seedScenes.length, 2, '工作底稿带两场');
@@ -968,7 +990,7 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
 // 质量门面板是报告的一部分：英文界面下门标签也要翻译（阈值由门自己算，原样保留）
 {
   const gateEn = renderHtml(FIXTURE, { ...CTX, lang: 'en' });
-  ok(gateEn.includes('Every cut 2–5s'), 'EN 报告的质量门标签翻译且阈值原样保留');
+  ok(gateEn.includes('Every cut 2–15s'), 'EN 报告的质量门标签翻译且阈值原样保留');
   ok(!gateEn.includes('每个分镜 2–5 秒'), 'EN 报告不再出现中文门标签');
   ok(gateEn.includes('no recipe card library mounted'), 'EN 报告的跳过说明也翻译');
   ok(gateEn.includes('--ref2va not given (keyframe export mode) — gate skipped (treated as passing)'), 'EN 报告明确翻译 Ref2VA 兼容模式跳过');
@@ -1145,6 +1167,20 @@ ok(html.includes('老周'), 'html 里 ID 换成名字');
   crossScene.episodes[0].segments[3].continuesFrom = 'E01-03';
   const cross = gate(crossScene, 'continuity', REF);
   ok(!cross.ok && cross.detail.includes('换了场次（1 → 2）'), '跨场承接被拦');
+}
+
+{
+  // 用户没定时长：每集总时长按剧本预估（编剧定长）对账
+  const untimed = clone(SCRIPT);
+  for (const ep of untimed.episodes) delete ep.targetSeconds;
+  const ctx = { ...CTX, script: untimed };
+  ok(gate(FIXTURE, 'ep-duration', ctx).ok, '没定目标时样例按剧本预估通过');
+  const st = computeStats(FIXTURE, untimed);
+  ok(st.totals.scriptLength && st.totals.targetSeconds > 100 && st.totals.targetSeconds < 110, '统计换成剧本预估');
+  const doc = clone(FIXTURE);
+  for (const s of doc.episodes[0].segments) for (const c of s.cuts) c.seconds = Math.max(2, c.seconds - 2);
+  ok(gate(doc, 'ep-duration', ctx).detail.includes('剧本预估'), '没定目标时写欠按剧本预估拦');
+  ok(renderMarkdown(FIXTURE, ctx).includes('剧本预估'), 'MD 每集写剧本预估');
 }
 
 console.log(`✓ ${passed} 项自测全部通过`);

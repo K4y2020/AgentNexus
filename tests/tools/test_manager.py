@@ -142,7 +142,6 @@ _CINE_TOOLS = frozenset(
         "seedance_read_canvas",
         "seedance_edit_canvas",
         "cine_verify_report",
-        "cine_jev_judge",
     }
 )
 

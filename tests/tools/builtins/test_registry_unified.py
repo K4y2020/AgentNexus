@@ -134,7 +134,7 @@ def test_builtin_names_size_matches_registry() -> None:
                 "seedance_read_canvas",
                 "seedance_edit_canvas",
                 "cine_verify_report",
-                "cine_jev_judge",
+                "cine_review_media",
                 # Image viewing and teammate tools are reserved framework names.
                 "sys_os_view_image",
                 "save_teammate_memory",
@@ -184,7 +184,7 @@ def test_cine_tools_are_instantiable() -> None:
         "seedance_read_canvas",
         "seedance_edit_canvas",
         "cine_verify_report",
-        "cine_jev_judge",
+        "cine_review_media",
     ):
         assert name in INSTANTIABLE_BUILTINS
         tool = get_builtin_tool(name)
