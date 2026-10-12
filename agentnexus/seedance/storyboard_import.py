@@ -17,17 +17,21 @@ from .asset_anchors import (  # noqa: F401 - re-exported for callers and tests
     _card_label,
     _character_entry,
     _character_sheet,
+    _character_state,
     _legacy_scene_nodes,
     _missing_character,
     _missing_visual_assets,
     _needs_outline,
     _referenced_characters,
     _referenced_scenes,
+    _referenced_states,
     _resolve_cast,
     _resolve_scene_id,
     _scene_entry,
     _scene_node,
     _scene_prompt,
+    _segment_character_states,
+    _state_nodes,
     _word,
 )
 from .client import SeedanceError
@@ -227,6 +231,19 @@ def _image_pointer(document: dict, collection: str, entry: dict, fields: tuple[s
             for field in fields:
                 if str(image.get(field) or "").strip():
                     return f"/{collection}/{index}/image/{field}"
+    raise ProductionRejected("CINE_IMPORT_ASSETS_MISSING")
+
+
+def _state_pointer(document: dict, card: dict, state: dict) -> str:
+    """Production pointer of a costume state's sheet inside its character card."""
+    for c_index, candidate in enumerate(document.get("characters", [])):
+        if candidate is not card:
+            continue
+        for s_index, row in enumerate(card.get("states") or []):
+            if row is state:
+                image = state.get("image") if isinstance(state.get("image"), dict) else {}
+                field = "sheet" if str(image.get("sheet") or "").strip() else "prompt"
+                return f"/characters/{c_index}/states/{s_index}/image/{field}"
     raise ProductionRejected("CINE_IMPORT_ASSETS_MISSING")
 
 
@@ -1068,6 +1085,56 @@ async def import_storyboard(
             )
             char_nodes[cid] = new_cnode
 
+        # Provision a sheet card for each costume state on screen. It references the
+        # main sheet, so the generated state keeps that face.
+        state_nodes = _state_nodes(list(curr_nodes.values()))
+        referenced_states = _referenced_states(segments)
+        for cid, state_id in referenced_states:
+            char_def = cast_index.cards.get(cid)
+            state_def = _character_state(char_def, state_id) if char_def else None
+            node = state_nodes.get((cid, state_id))
+            if char_def and state_def and _character_sheet(state_def):
+                pointer = _state_pointer(cast_doc, char_def, state_def)
+                if node is None:
+                    label = str(state_def.get("label") or state_id).strip()
+                    node, _ = await _create_target(
+                        client,
+                        bound,
+                        node_type="image_prompt",
+                        title=f"{char_def.get('name') or cid} · {label[:24]} · 状态三视图",
+                        data={
+                            "characterId": cid,
+                            "characterState": state_id,
+                            "prompt": _character_sheet(state_def),
+                            "brief": label,
+                            "aspectRatio": "16:9",
+                            "generationKind": "image",
+                            "productionStage": "cast",
+                            "production_stage": "cast",
+                            "production_pointer": pointer,
+                            "role": "character_sheet",
+                        },
+                    )
+                    state_nodes[(cid, state_id)] = node
+                else:
+                    await _ensure_node_binding(client, bound, node["id"], "cast", pointer)
+            elif node is None:
+                # Validated above; only reachable if the canvas changed meanwhile.
+                raise ProductionRejected(
+                    "CINE_IMPORT_ASSETS_MISSING",
+                    {"problems": [f"Character {cid} state {state_id} has no sheet."]},
+                )
+            if cid in char_nodes:
+                await _connect_once(
+                    client,
+                    bound,
+                    edges,
+                    char_nodes[cid]["id"],
+                    node["id"],
+                    "references",
+                    f"cs-{cid}",
+                )
+
         # Provision scene concept cards missing from the canvas.
         for sid, s_idx in referenced_scenes.items():
             scene_def = _scene_entry(art_doc, sid, s_idx)
@@ -1194,15 +1261,21 @@ async def import_storyboard(
 
                 if sb_node_id:
                     await _connect_once(client, bound, edges, sb_node_id, card_id, "derives", "vp")
-                segment_characters = dict.fromkeys(
-                    name for cut in cuts for name in cut.get("characters") or [] if name
-                )
-                for cid in segment_characters:
-                    cnode = char_nodes.get(cid)
-                    if cnode:
-                        await _connect_once(
-                            client, bound, edges, cnode["id"], card_id, "references", f"c-{cid}"
+                # Each character is referenced through the sheet of the costume worn here.
+                segment_assets: dict[str, str] = {}
+                for cid, states in _segment_character_states(seg).items():
+                    for state_id in states:
+                        cnode = (
+                            char_nodes.get(cid)
+                            if state_id == "default"
+                            else state_nodes.get((cid, state_id))
                         )
+                        if cnode:
+                            segment_assets[cnode["id"]] = cid
+                for node_id, cid in segment_assets.items():
+                    await _connect_once(
+                        client, bound, edges, node_id, card_id, "references", f"c-{cid}"
+                    )
                 s_idx = seg.get("sceneIndex")
                 sc_id = _resolve_scene_id(script, ep.get("ep"), s_idx) if s_idx else None
                 snode = _scene_node(
@@ -1239,9 +1312,7 @@ async def import_storyboard(
                     )
                     frame_ref = f"node:{frame['id']}"
                     frame_entities = {frame_ref: ("frame", str(continued_from))}
-                wanted = {
-                    char_nodes[cid]["id"] for cid in segment_characters if cid in char_nodes
-                } | ({snode["id"]} if snode else set())
+                wanted = set(segment_assets) | ({snode["id"]} if snode else set())
                 snapshot = await client.get_snapshot(bound)
                 linked = {
                     e.get("from")
@@ -1301,6 +1372,7 @@ async def import_storyboard(
                                     [
                                         *curr_nodes.values(),
                                         *char_nodes.values(),
+                                        *state_nodes.values(),
                                         *scene_nodes.values(),
                                     ],
                                     referenced_scenes,
@@ -1401,6 +1473,11 @@ async def import_storyboard(
         "linked as references). Visual character sheets must be reviewed before submitting "
         "video generation to ensure character consistency across cuts."
     )
+    if referenced_states:
+        next_step += (
+            f" {len(referenced_states)} costume-state sheet card(s) reference their character's "
+            "main sheet; generate the main sheet first."
+        )
     if preserved:
         next_step += (
             " Left unchanged because their prompts were edited on the canvas after the last "
@@ -1427,6 +1504,7 @@ async def import_storyboard(
         "receipt": {
             **receipt,
             "character_assets_linked": len(char_nodes),
+            "character_state_assets_linked": len(referenced_states),
             "scene_assets_linked": len(scene_nodes),
             "preserved_edited_cards": preserved,
             "update_conflicts": conflicts,

@@ -1684,3 +1684,148 @@ async def test_a_reimport_leaves_out_assets_a_segment_no_longer_uses(tmp_path):
     _write_production(tmp_path, cast=cast, art=_ART, storyboard=both, script=_SCRIPT)
     await _run_import(tmp_path, v3, {"1": "ep1"})
     assert _cards(state)["E01-01"]["data"]["excludedReferenceIds"] == []
+
+
+_STATE_CAST = {
+    "characters": [
+        {
+            "id": "C01",
+            "name": "顾青",
+            "image": {"sheet": "16:9 sheet prompt"},
+            "states": [
+                {
+                    "id": "soaked",
+                    "label": "淋雨后",
+                    "descriptor": "Same traveler, soaked through.",
+                    "image": {"prompt": "half-length state portrait", "sheet": "16:9 state sheet"},
+                }
+            ],
+        }
+    ]
+}
+
+
+def _state_segment(seg_id, state, prompt=""):
+    seg = _segment(seg_id, prompt=prompt)
+    seg["cuts"][0]["characterStates"] = {"C01": state}
+    return seg
+
+
+def _state_sheets(state):
+    return [n for n in state["nodes"] if (n.get("data") or {}).get("characterState")]
+
+
+def _references(state, card):
+    return {
+        e["from"] for e in state["edges"] if e["to"] == card["id"] and e["kind"] == "references"
+    }
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_a_costume_state_is_referenced_through_its_own_sheet_card(tmp_path):
+    plain = {
+        "source": "Test",
+        "episodes": [{"ep": 1, "segments": [_segment("E01-01"), _segment("E01-02")]}],
+    }
+    _write_production(tmp_path, cast=_STATE_CAST, art=_ART, storyboard=plain, script=_SCRIPT)
+    v3, state = _updating_canvas(_TARGETS)
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+    [main] = [n for n in state["nodes"] if (n.get("data") or {}).get("characterId") == "C01"]
+
+    # The second segment now dresses the character in a costume state.
+    dressed = {
+        "source": "Test",
+        "episodes": [
+            {"ep": 1, "segments": [_segment("E01-01"), _state_segment("E01-02", "soaked")]}
+        ],
+    }
+    _write_production(tmp_path, cast=_STATE_CAST, art=_ART, storyboard=dressed, script=_SCRIPT)
+    result = await _run_import(tmp_path, v3, {"1": "ep1"})
+
+    [sheet] = _state_sheets(state)
+    assert sheet["title"] == "顾青 · 淋雨后 · 状态三视图"
+    assert sheet["data"]["characterId"] == "C01"
+    assert sheet["data"]["prompt"] == "16:9 state sheet"
+    assert sheet["data"]["role"] == "character_sheet"
+    assert sheet["data"]["production_pointer"] == "/characters/0/states/0/image/sheet"
+    # The state sheet takes its face from the main sheet.
+    assert {"from": main["id"], "to": sheet["id"], "kind": "references"} in state["edges"]
+    cards = _cards(state)
+    assert main["id"] in _references(state, cards["E01-01"])
+    assert sheet["id"] not in _references(state, cards["E01-01"])
+    assert sheet["id"] in _references(state, cards["E01-02"])
+    # The first import wired the main sheet in; it no longer feeds that card.
+    assert cards["E01-02"]["data"]["excludedReferenceIds"] == [f"node:{main['id']}"]
+    assert result["receipt"]["character_state_assets_linked"] == 1
+
+    await _run_import(tmp_path, v3, {"1": "ep1"})
+    sheets = [n for n in state["nodes"] if (n.get("data") or {}).get("characterId") == "C01"]
+    assert len(sheets) == 2, "a re-import reuses the main and the state sheet"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_a_state_sheet_takes_the_characters_picture_number(tmp_path):
+    from agentnexus.seedance.storyboard_import import planned_image_references
+
+    on_canvas = [
+        *_TARGETS,
+        {
+            "id": "main",
+            "type": "image_prompt",
+            "title": "顾青 · 角色三视图",
+            "data": {"characterId": "C01"},
+        },
+        {
+            "id": "scene",
+            "type": "image_prompt",
+            "title": "南岸候船亭 · 场景概念图",
+            "data": {"sceneId": "S01"},
+        },
+    ]
+    storyboard = {
+        "source": "Test",
+        "episodes": [
+            {
+                "ep": 1,
+                "segments": [_state_segment("E01-01", "soaked", _prompt_needing_alignment())],
+            }
+        ],
+    }
+    _write_production(tmp_path, cast=_STATE_CAST, art=_ART, storyboard=storyboard, script=_SCRIPT)
+    v3, state = _updating_canvas(on_canvas)
+
+    result = await _run_import(tmp_path, v3, {"1": "ep1"})
+
+    card = _cards(state)["E01-01"]
+    [sheet] = _state_sheets(state)
+    planned = planned_image_references(state, card["id"])
+    assert [ref["id"] for ref in planned] == ["node:scene", f"node:{sheet['id']}"]
+    # Authored with the character second, which is where its state sheet sits.
+    assert card["data"]["prompt"] == _prompt_needing_alignment()
+    assert result["receipt"]["subject_alignment_review"] == []
+
+
+def test_missing_assets_require_a_sheet_for_every_costume_state_on_screen():
+    from pathlib import Path
+
+    from agentnexus.seedance.asset_anchors import _missing_visual_assets
+
+    segments = [
+        ({"ep": 1}, _state_segment("E01-01", "soaked")),
+        ({"ep": 1}, _state_segment("E01-02", "masked")),
+    ]
+    cast = json.loads(json.dumps(_STATE_CAST))
+    cast["characters"][0]["states"][0]["image"] = {}
+    documents = ((Path("cast.json"), cast), (Path("art.json"), _ART))
+
+    assert _missing_visual_assets(segments, [], *documents, script_doc=_SCRIPT) == [
+        "Character C01 wears state masked, which cast.json does not define.",
+        "Character C01 state soaked has no image.sheet in cast.json.",
+    ]
+    drawn = [
+        {"id": n, "type": "image_prompt", "data": {"characterId": "C01", "characterState": s}}
+        for n, s in (("a", "soaked"), ("b", "masked"))
+    ]
+    assert _missing_visual_assets(segments, drawn, *documents, script_doc=_SCRIPT) == []
