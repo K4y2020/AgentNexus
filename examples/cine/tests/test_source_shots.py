@@ -59,13 +59,26 @@ ROWS = [
         "delivery": "spoken",
         "performance": {"speaker": "offscreen"},
     },
-    {"start": 4.6, "end": 6.4, "text": "上来吧。", "speaker_name": "老周", "delivery": "spoken"},
+    {
+        "start": 4.6,
+        "end": 6.4,
+        "text": "上来吧。",
+        "speaker_name": "老周",
+        "delivery": "spoken",
+        "performance": {
+            "emotion": "催促",
+            "visible": "皱眉朝岸上连连挥手",
+            "who": "蓑衣老船夫",
+            "speaker": "P1",
+        },
+    },
     {
         "start": 7.0,
         "end": 8.0,
         "text": "灯亮了就不怕。",
         "speaker_name": "沈知微",
         "delivery": "voice_over",
+        "performance": {"emotion": "看不清", "visible": "", "who": ""},
     },
     {"start": 8.2, "end": 8.8, "text": "走吧。", "speaker": "extra", "speaker_name": "非角色人物"},
 ]
@@ -82,14 +95,15 @@ def test_a_line_goes_to_the_shot_it_overlaps_most():
     assert [r["text"] for r in placed[id(shots[1])]] == ["上来吧。"]
 
 
-def test_script_seed_lists_framing_speakers_and_readable_people():
+def test_script_seed_lists_framing_speakers_performance_and_readable_people():
     document = {"episodes": [{"ep": 1}, {"ep": 2}]}
     assert ss.add_source_shots("script", document, MATERIAL, OUTLINE, ROWS) == 3
     first, second = document["episodes"]
     assert first["sourceShots"] == {
         "S01 雾中码头": [
             "2.0s 全景·跟拍：老年男子解开缆绳 ｜ 沈知微（画外）「雾这么大还开船？」",
-            "5.0s 特写·固定·渐黑入：沈知微站在码头张望 ｜ 老周「上来吧。」",
+            "5.0s 特写·固定·渐黑入：沈知微站在码头张望 ｜ "
+            "老周「上来吧。」〔画面：蓑衣老船夫，催促：皱眉朝岸上连连挥手〕",
         ]
     }
     assert second["sourceShots"] == {
@@ -105,7 +119,8 @@ def test_storyboard_seed_uses_its_own_vocabulary_per_scene():
     scenes = document["episodes"][0]["seedScenes"]
     assert scenes[0]["sourceShots"] == [
         "2.0–5.0s · wide · Tracking Shot：老年男子解开缆绳 ｜ 「雾这么大还开船？」",
-        "5.0–6.5s · close · Static Shot · fade in：沈知微站在码头张望 ｜ 「上来吧。」",
+        "5.0–6.5s · close · Static Shot · fade in：沈知微站在码头张望 ｜ "
+        "「上来吧。」〔画面：蓑衣老船夫，催促：皱眉朝岸上连连挥手〕",
     ]
     assert "sourceShots" not in scenes[1]
 

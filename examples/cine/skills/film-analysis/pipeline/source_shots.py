@@ -1,12 +1,18 @@
 """The source shots behind each outline scene, written into the script and storyboard seeds.
 
 Writers read the seeded file first and rarely open the source material, so the shots
-of a scene's source locations (what is seen, how it is shot, what is said) go there.
+of a scene's source locations (what is seen, how it is shot, what is said and how it
+is played) go there.
 """
 
 from __future__ import annotations
 
 import re
+
+try:
+    from .line_performance import describe
+except ImportError:  # loaded as a standalone module
+    from line_performance import describe
 
 PERSON_ID = re.compile(r"(?<![A-Za-z0-9])P[1-9][0-9]*(?![A-Za-z0-9])")
 SIZE_ZH = {
@@ -126,6 +132,12 @@ def _speaker(row: dict) -> str:
     return f"{name}（画外）" if performance.get("speaker") == "offscreen" else name
 
 
+def _played(row: dict) -> str:
+    """How the line is played on screen; the person is named, as it may be the listener."""
+    seen = describe(row.get("performance"))
+    return f"〔画面：{seen}〕" if seen else ""
+
+
 def script_line(shot: dict, said: list[dict], labels: dict[str, str] | None = None) -> str:
     """One source shot for the screenwriter: time, framing, action and who says what."""
     size = SIZE_ZH.get(shot.get("size"), "")
@@ -135,7 +147,7 @@ def script_line(shot: dict, said: list[dict], labels: dict[str, str] | None = No
     head = f"{shot['start']:.1f}s" + (f" {framing}" if framing else "")
     if shot.get("transition") == "fade":
         head += "·渐黑入"
-    lines = [f"{_speaker(row)}「{row['text'].strip()}」" for row in said]
+    lines = [f"{_speaker(row)}「{row['text'].strip()}」{_played(row)}" for row in said]
     return f"{head}：{_what(shot, labels or {})}" + (" ｜ " + "；".join(lines) if lines else "")
 
 
@@ -147,7 +159,7 @@ def storyboard_line(shot: dict, said: list[dict], labels: dict[str, str] | None 
         parts.append(VIEWPOINT_EN[shot["viewpoint"]])
     if shot.get("transition") == "fade":
         parts.append("fade in")
-    lines = "".join(f"「{row['text'].strip()}」" for row in said)
+    lines = "".join(f"「{row['text'].strip()}」{_played(row)}" for row in said)
     what = _what(shot, labels or {})
     return " · ".join(parts) + f"：{what}" + (f" ｜ {lines}" if lines else "")
 
