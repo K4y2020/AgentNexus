@@ -26,7 +26,7 @@ cine-characters → cast.json    (who: character assets)
 cine-art        → art.json     (where & what they hold: art assets)
 ```
 
-`seed <outline.json>` prefills both the scene list and the prop list deterministically, carrying over the episodes each one appears in and the beats it serves; if the outline has no `props`, the prop list is left empty and the model extracts it from the text per `prop-pass.md`. `validate --cast` cross-checks prompts against the character roster. Style presets share names with cine-characters (realistic / ghibli), environment-flavoured.
+`seed <outline.json>` prefills both the scene list and the prop list deterministically, carrying over the episodes each one appears in and the beats it serves; if the outline has no `props`, the prop list is left empty and the model extracts it from the text per `prop-pass.md`. `validate --cast` cross-checks prompts against the character roster. Style presets share names with cine-characters (photoreal / semi-realistic / ghibli), environment-flavoured.
 
 ## CLI
 

@@ -82,7 +82,7 @@ node scripts/cine-characters.mjs seed outline.json > seed.json
 
 ### 出图风格
 
-默认 `realistic`（半写实厚涂）。想要动画质感：
+默认跟原片一致；没有原片记录时是 `semi-realistic`（半写实厚涂）。想要动画质感：
 
 ```
 /cine-characters ./book.txt --style ghibli
@@ -90,7 +90,8 @@ node scripts/cine-characters.mjs seed outline.json > seed.json
 
 | id | 说明 |
 | --- | --- |
-| `realistic` | 半写实厚涂，皮肤有毛孔和肌理，布料有织纹磨损。默认 |
+| `photoreal` | 写实，真人实拍质感 |
+| `semi-realistic` | 半写实厚涂，皮肤有毛孔和肌理，布料有织纹磨损。旧名 `realistic` |
 | `ghibli` | 吉卜力式手绘赛璐璐，等宽墨线、单层柔和阴影、平涂色块 |
 
 两个可以组合：`--lang ja --style ghibli`。
@@ -121,7 +122,7 @@ node scripts/cine-characters.mjs styles ghibli   # 看某一个的完整内容
 顶栏的「导出 JSON」下载的**就是 `cast.json` 本身的形状**，不是另一套导出格式：
 
 ```json
-{ "source": "…", "lang": "zh", "style": "realistic", "summary": "…", "characters": [ … ] }
+{ "source": "…", "lang": "zh", "style": "semi-realistic", "summary": "…", "characters": [ … ] }
 ```
 
 所以外部工具改完可以**直接喂回 `render` 重新出报告**，也能过 `validate`。角色卡里的 `sheetImage`（`images/<slug>-sheet.png`）一并带出，拿得到哪张图对应哪个人。
@@ -190,7 +191,7 @@ references/
   schema.md              角色卡结构 + 字段语言归属
   sheet.md               角色设定图出图的直接 V3 画布调用契约
   report-style.md        report.html 的设计约定
-  style-presets.md       出图风格预设（realistic / ghibli）
+  style-presets.md       出图风格预设（photoreal / semi-realistic / ghibli）
 examples/
   渡口.txt                自带短故事，4 个角色
   渡口-cast.json          产出，同时是校验自检夹具

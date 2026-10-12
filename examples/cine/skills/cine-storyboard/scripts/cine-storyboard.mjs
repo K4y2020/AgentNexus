@@ -5,7 +5,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { artworkMedium, embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, r1, readJson, runCli, safeStem } from '../../_shared/cine-common.mjs';
+import { artworkMedium, canonicalStyle, embedJson, esc, flag, gateTextFor, i18nLookup, mdHead, mdRow, r1, readJson, runCli, safeStem } from '../../_shared/cine-common.mjs';
 
 /* ------------------------------------------------------------------ */
 /* 常量                                                                */
@@ -74,10 +74,14 @@ export const CAMERA_MOVES = {
 /** 固定镜头的段落里不该出现「镜头在动」的写法，否则视频模型拿到的是自相矛盾的指令。 */
 const CAMERA_MOVING = /\bcamera\s+(?:[a-z]+ly\s+)?(?:pans?|sweeps?|tracks?|follows?|pushes|pulls?|dolly|dollies|tilts?|cranes?|glides?|arcs?|orbits?|zooms?|swings?|whips?|drifts?|moves?|trucks?|travels?|circles?|rises?|lowers?|descends?|tightens?|widens?|creeps?|slides?|rolls?)\b|镜头(?:缓缓|慢慢|缓慢|快速|迅速|随之|随即|逐渐|一路)?(?:推进|推近|拉远|拉开|摇向|摇到|横摇|横移|跟随|跟着|上升|下降|环绕|旋转|甩向)/i;
 
-/** 分镜图风格预设：与 cine-characters / cine-art 同名对齐（realistic / ghibli）。
+/** 分镜图风格预设：与 cine-characters / cine-art 同名对齐（photoreal / semi-realistic / ghibli）。
  *  短语必须出现在每条分镜图提示词里——同一部剧的分镜图不许画风漂。 */
 export const STYLE_PRESETS = {
-  realistic: {
+  photoreal: {
+    zh: '写实', phrase: 'photorealistic live-action',
+    sentence: 'The target video is photorealistic live-action footage with natural skin and true-to-life materials, clean smooth surfaces without film grain or digital noise, and practical light matching the cast and art references.',
+  },
+  'semi-realistic': {
     zh: '半写实厚涂', phrase: 'semi-realistic painterly',
     sentence: 'The target video uses a semi-realistic painterly style with visible brush texture, grounded proportions and softly layered light matching the cast and art references.',
   },
@@ -86,7 +90,7 @@ export const STYLE_PRESETS = {
     sentence: 'The target video uses a hand-painted anime style with soft watercolour shading, readable shapes and gentle painted edges matching the cast and art references.',
   },
 };
-export const DEFAULT_STYLE = 'realistic';
+export const DEFAULT_STYLE = 'semi-realistic';
 
 const CJK = /[㐀-鿿぀-ヿ가-힯]/;
 
@@ -703,7 +707,7 @@ export function auditStoryboard(board, ctx = {}) {
     if (!doc) skip(styleRule, label, `Missing ${label}.json; reference style metadata was not compared`);
     else {
       evaluated(styleRule);
-      if ((doc.style ?? DEFAULT_STYLE) !== (board?.style ?? DEFAULT_STYLE)) {
+      if (canonicalStyle(doc.style ?? DEFAULT_STYLE) !== canonicalStyle(board?.style ?? DEFAULT_STYLE)) {
         issue(styleRule, `${label}.style`, 'Reference and storyboard style IDs differ', {
           reference: doc.style ?? DEFAULT_STYLE, storyboard: board?.style ?? DEFAULT_STYLE,
         });
@@ -1380,7 +1384,7 @@ export function gateReport(board, ctx = {}) {
   // 配方卡库是可选挂载：ctx.recipes 为空就整门跳过（不是「没有 cut 带 recipe」就跳过）
   const recipes = ctx.recipes ?? null;
   let recipeRefs = 0;
-  const styleId = board?.style ?? DEFAULT_STYLE;
+  const styleId = canonicalStyle(board?.style ?? DEFAULT_STYLE);
   const style = STYLE_PRESETS[styleId];
   if (!style) bad.style.push(`style「${styleId}」不在预设里（${Object.keys(STYLE_PRESETS).join(' / ')}）`);
   // 提示词语言：默认英文——官方规范的口径（台词仍在 <d> 里保留原文）；'zh' 可切整条中文
@@ -1840,8 +1844,8 @@ export function seedFromScript(script, epRange = null, ctx = {}) {
   }
   return {
     source: script?.source ?? '',
-    style: ctx.cast?.style ?? ctx.art?.style ?? DEFAULT_STYLE,
-    styleSentence: STYLE_PRESETS[ctx.cast?.style ?? ctx.art?.style ?? DEFAULT_STYLE]?.sentence ?? '',
+    style: canonicalStyle(ctx.cast?.style ?? ctx.art?.style ?? DEFAULT_STYLE),
+    styleSentence: STYLE_PRESETS[canonicalStyle(ctx.cast?.style ?? ctx.art?.style ?? DEFAULT_STYLE)]?.sentence ?? '',
     stateContractVersion: script?.stateContractVersion ?? 1,
     continuityContractVersion: CONTINUITY_CONTRACT_VERSION,
     episodes,

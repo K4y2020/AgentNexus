@@ -5,7 +5,7 @@
 ```json
 {
   "source": "渡口",
-  "style": "realistic",
+  "style": "semi-realistic",
   "scenes": [{
     "id": "S01", "name": "渡船船舱", "primary": true,
     "summary": "设计意图：这个空间讲什么故事……",
@@ -32,7 +32,7 @@
 | 字段 | 必填 | 说明 |
 | --- | --- | --- |
 | `source` | 是 | 剧名/书名 |
-| `style` | 是 | `realistic` / `ghibli`，与 cine-characters 的画风同名对齐（内容是环境版，不带皮肤毛孔那套） |
+| `style` | 是 | `photoreal` / `semi-realistic` / `ghibli`，与 cine-characters 的画风同名对齐（内容是环境版，不带皮肤毛孔那套）。旧名 `realistic` 等同 `semi-realistic` |
 | `scenes` | 是 | 场景数组 |
 | `props` | 否 | **叙事道具**数组——只收有特写、跨集、承载剧情的（3–8 件为宜），场景陈设归场景锚点。选法见 `prop-pass.md` |
 

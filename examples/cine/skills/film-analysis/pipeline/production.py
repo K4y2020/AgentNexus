@@ -786,6 +786,40 @@ def storyboard_pov(directory, paths, input_hashes, jev_model):
         return {"status": "unavailable", "error": f"{type(exc).__name__}: {exc}"}
 
 
+# The style presets cine-characters and cine-art accept; ``realistic`` is the old name of
+# ``semi-realistic`` (deprecated, remove with the skills' alias in 0.14.0).
+STYLE_PRESETS = ("photoreal", "semi-realistic", "ghibli")
+STYLE_ALIASES = {"realistic": "semi-realistic"}
+
+
+def seed_style(directory, stage):
+    """The preset a cast or art seed starts from, and where that choice came from.
+
+    Art follows the cast so the two references match; otherwise the user's outline choice
+    wins, then the source film's own medium. ``None`` leaves the skill's default.
+    """
+
+    def preset(value):
+        value = STYLE_ALIASES.get(value, value)
+        return value if value in STYLE_PRESETS else None
+
+    if stage == "art":
+        cast_path = stage_path(directory, "cast", must_exist=False)
+        if cast_path.is_file() and (style := preset(read(cast_path).get("style"))):
+            return style, "cast"
+    outline_path = stage_path(directory, "outline", must_exist=False)
+    if outline_path.is_file():
+        params = read(outline_path).get("params") or {}
+        if style := preset(params.get("style")):
+            return style, "outline"
+    material_path = source_material_path(directory)
+    if material_path.is_file():
+        reading = read(material_path).get("visual_style") or {}
+        if style := preset(reading.get("style")):
+            return style, "source"
+    return None, None
+
+
 def seed(directory, stage, timeout=30, *, replace_empty=False):
     if stage == "outline":
         raise ValueError("use init for the initial outline")
@@ -819,6 +853,16 @@ def seed(directory, stage, timeout=30, *, replace_empty=False):
     }
     hashes[str(manifest)] = binding_hash
     command = [node, str(tool), "seed", str(path)]
+    style, style_from = seed_style(directory, stage) if stage in ("cast", "art") else (None, None)
+    if style:
+        command.extend(["--style", style])
+        for name in ("cast", "outline"):
+            chosen = stage_path(directory, name, must_exist=False)
+            if chosen.is_file():
+                hashes[str(chosen)] = fingerprint(chosen)
+        material_path = source_material_path(directory)
+        if material_path.is_file():
+            hashes[str(material_path)] = fingerprint(material_path)
     if stage == "storyboard":
         bindings = read(manifest).get("artifacts", {}) if manifest.is_file() else None
         for reference in ("cast", "art"):
@@ -859,6 +903,7 @@ def seed(directory, stage, timeout=30, *, replace_empty=False):
         "validated": False,
         "command": command,
         "input_hashes": hashes,
+        **({"style": style, "style_from": style_from} if style else {}),
     }
 
 

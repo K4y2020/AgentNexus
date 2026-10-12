@@ -145,7 +145,11 @@ cropped or sped up, or one that only moves speech forward, is not.
    next run, using the configured gateway model. `film_analyze` reports
    `notes_incomplete` while any shot is unread, and the source-material export
    refuses such an analysis. `film_status` reports its status, location and people
-   counts.
+   counts. After a complete reading `film_analyze` also names the source's rendering
+   medium once from six frames of the film proper (`visual_style.json`: `photoreal`,
+   `semi-realistic`, `ghibli` or `other`); the source-material export carries it as
+   `visual_style`, and a production's cast and art start from that preset unless the
+   outline sets `params.style`.
 2. Process every story-plan batch in order. First read its overlapping shots in
    shot_notes.json, then combine their visible actions and locations with the
    timed dialogue to write events. Every event names its location. Keep teaser

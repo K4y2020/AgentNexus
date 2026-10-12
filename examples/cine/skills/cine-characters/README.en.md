@@ -84,7 +84,8 @@ Two things never follow the language: **image and TTS prompts stay English** (th
 
 | id | What it is |
 | --- | --- |
-| `realistic` | Semi-realistic painterly — skin with pores and texture, fabric with weave and wear. Default |
+| `photoreal` | Photoreal live-action |
+| `semi-realistic` | Semi-realistic painterly — skin with pores and texture, fabric with weave and wear. Formerly `realistic` |
 | `ghibli` | Ghibli-like hand-painted cel — even ink linework, a single soft shadow tone, flat colour |
 
 They combine: `--lang ja --style ghibli`.
@@ -114,7 +115,7 @@ The circular layout is computed in Node and written straight into inline SVG —
 The **Export JSON** button in the top bar downloads exactly the `cast.json` shape — not some separate export format:
 
 ```json
-{ "source": "…", "lang": "zh", "style": "realistic", "summary": "…", "characters": [ … ] }
+{ "source": "…", "lang": "zh", "style": "semi-realistic", "summary": "…", "characters": [ … ] }
 ```
 
 So an external tool can edit it and **feed it straight back into `render`**, and it still passes `validate`. Each character keeps its `sheetImage` path (`images/<slug>-sheet.png`), so you know which sheet belongs to whom.
@@ -183,7 +184,7 @@ references/
   schema.md              sheet structure and which language each field takes
   sheet.md               the direct V3 canvas contract for model-sheet generation
   report-style.md        design conventions for report.html
-  style-presets.md       image style presets (realistic / ghibli)
+  style-presets.md       image style presets (photoreal / semi-realistic / ghibli)
 examples/
   渡口.txt                bundled short story, 4 characters
   渡口-cast.json          its output, doubling as the validation fixture

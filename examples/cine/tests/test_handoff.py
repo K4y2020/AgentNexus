@@ -302,6 +302,31 @@ def test_material_exports_the_film_fingerprint_for_transcript_checks(tmp_path):
     assert handoff.source_material(tmp_path)["source_fingerprint"] == fingerprint
 
 
+def test_material_exports_the_source_visual_style_for_this_revision_only(tmp_path):
+    source_fixture(tmp_path)
+    assert "visual_style" not in handoff.source_material(tmp_path)
+    reading = {
+        "source_id": "src",
+        "revision_id": "r1",
+        "status": "read",
+        "style": "photoreal",
+        "evidence": "真实皮肤与布料",
+        "model": "vision",
+    }
+    write(tmp_path / "revisions/r1/visual_style.json", reading)
+    material = handoff.source_material(tmp_path)
+    assert material["visual_style"] == {
+        "style": "photoreal",
+        "evidence": "真实皮肤与布料",
+        "model": "vision",
+    }
+    assert "revisions/r1/visual_style.json" in material["source_input_hashes"]
+    write(tmp_path / "revisions/r1/visual_style.json", {**reading, "revision_id": "r0"})
+    assert "visual_style" not in handoff.source_material(tmp_path)
+    write(tmp_path / "revisions/r1/visual_style.json", {**reading, "status": "unavailable"})
+    assert "visual_style" not in handoff.source_material(tmp_path)
+
+
 def test_material_without_a_complete_fingerprint_exports_none(tmp_path):
     source_fixture(tmp_path)
     write(tmp_path / "source.json", {"source_id": "src", "size_bytes": 10})

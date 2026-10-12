@@ -5,7 +5,7 @@ description: |
   从小说或短故事里拆出角色表、人物画像、形象提示词、音色提示词，
   并给每个角色出角色设定图（左半身像 + 右全身三视图 + 细节条），产出 JSON + Markdown + 可交互的 report.html。
   报告语言可指定（--lang），默认中文，任意语言都支持；
-  出图风格可指定（--style），默认半写实，也可以出吉卜力动画风。
+  出图风格默认跟原片一致（写实、半写实厚涂或吉卜力动画），用户可以另指定。
   本地脚本零依赖；Cine 通过 seedance_read_canvas / seedance_edit_canvas 制作设定卡，授权后由 V3 workers 出图。
   Use when asked to 拆小说角色、分析人物、生成角色卡、character sheets from a novel。
 allowed-tools:
@@ -78,7 +78,7 @@ metadata:
 
 ### Step 0.5 — 确定画风
 
-用户可以指定出图风格：**默认 `realistic`**（半写实厚涂），想要动画质感就用 `ghibli`（吉卜力式手绘赛璐璐）。
+**画风默认跟原片一致**：拉片记录原片的画面媒介（source-material 的 `visual_style`），production seed 已按它写好 cast 的 `style`；用户要另一种画风时写在大纲 `params.style`。三档预设：`photoreal`（写实，真人实拍质感）、`semi-realistic`（半写实厚涂）、`ghibli`（吉卜力式手绘赛璐璐）。没有原片记录时默认 `semi-realistic`。旧名 `realistic` 等同 `semi-realistic`，0.14.0 移除。
 
 ```bash
 node {baseDir}/scripts/cine-characters.mjs styles   # 打印预设的完整内容
@@ -86,7 +86,7 @@ node {baseDir}/scripts/cine-characters.mjs styles   # 打印预设的完整内�
 
 读 `{baseDir}/references/style-presets.md`。**换风格是整套换**——每个预设自带 render / surface / lighting / negative / tags 五块，整块取用，不要混搭。
 
-最容易搞反的是反向提示词：`realistic` 绝不能禁 `photorealistic`，`ghibli` 必须禁。`validate` 会拦这个。
+最容易搞反的是反向提示词：`photoreal` 与 `semi-realistic` 绝不能禁 `photorealistic`，`ghibli` 必须禁；`photoreal` 还必须禁 `painterly`，否则会画出笔触。`validate` 会拦这个。
 
 版面规则（16:9 三区、比例、细节让位）**不随风格变**，变的只有渲染质感。
 

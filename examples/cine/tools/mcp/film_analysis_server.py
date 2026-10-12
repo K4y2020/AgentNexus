@@ -726,6 +726,19 @@ def film_analyze(
             "locations": 0,
             "errors": [f"{type(exc).__name__}: {exc}"],
         }
+    visual_style = {"status": "not_run", "reason": "shot notes incomplete"}
+    if shot_notes.get("status") == "read":
+        from pipeline.visual_style import read_visual_style
+
+        try:
+            style = read_visual_style(
+                video_path, output_path, frame_cache=workspace_path / ".cine-cache" / "frames"
+            )
+            visual_style = {
+                k: style.get(k) for k in ("status", "style", "evidence", "model", "errors")
+            }
+        except Exception as exc:  # noqa: BLE001 - the default style applies without a reading
+            visual_style = {"status": "unavailable", "errors": [f"{type(exc).__name__}: {exc}"]}
 
     try:
         transcription = _transcription_for(
@@ -757,6 +770,7 @@ def film_analyze(
         "result": result,
         "transcription": transcription,
         "shot_notes": shot_notes,
+        "visual_style": visual_style,
         "next": f"{next_step} {_VERIFY}",
     }
 

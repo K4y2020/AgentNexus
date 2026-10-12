@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { artworkMedium } from '../../_shared/cine-common.mjs';
 import {
   CAMERA_MOVES,
   castView,
@@ -590,15 +591,15 @@ for (const block of ['<d>The ferry is ready.</d>', '<d>[Chinese] The ferry is re
 
 // style-phrase — 同剧分镜图画风不许漂
 {
-  eq(DEFAULT_STYLE, 'realistic', '默认半写实');
-  ok(STYLE_PRESETS.realistic.phrase && STYLE_PRESETS.ghibli.phrase, '预设带风格短语');
+  eq(DEFAULT_STYLE, 'semi-realistic', '默认半写实');
+  ok(STYLE_PRESETS['semi-realistic'].phrase && STYLE_PRESETS.ghibli.phrase, '预设带风格短语');
   const doc = clone(FIXTURE);
   doc.style = '油画';
   ok(!gate(doc, 'style-phrase').ok, '不在预设里的风格被拦');
 }
 {
   const doc = clone(FIXTURE);
-  doc.episodes[0].segments[0].cuts[0].frame = doc.episodes[0].segments[0].cuts[0].frame.replace(STYLE_PRESETS.realistic.phrase, 'cinematic image');
+  doc.episodes[0].segments[0].cuts[0].frame = doc.episodes[0].segments[0].cuts[0].frame.replace(STYLE_PRESETS['semi-realistic'].phrase, 'cinematic image');
   const g = gate(doc, 'style-phrase');
   ok(!g.ok, '分镜图提示词缺风格短语被拦');
   ok(g.detail.includes('E01-01#1'), '点名到切');
@@ -825,6 +826,18 @@ ok(validateStoryboard({ source: 'x', episodes: [] }).some((p) => p.includes('epi
 
 const seeded = seedFromScript(SCRIPT);
 eq(seeded.source, '渡口', 'seed 带剧名');
+{
+  // 分镜画风跟人物卡走；旧名 realistic 写成新名，句子不变
+  const old = seedFromScript(SCRIPT, null, { cast: { style: 'realistic' } });
+  eq(old.style, 'semi-realistic', 'seed 把人物卡旧名写成新名');
+  eq(old.styleSentence, STYLE_PRESETS['semi-realistic'].sentence, '半写实风格句不变');
+  const photo = seedFromScript(SCRIPT, null, { cast: { style: 'photoreal' } });
+  eq(photo.style, 'photoreal', 'seed 继承写实画风');
+  eq(photo.styleSentence, STYLE_PRESETS.photoreal.sentence, 'seed 写入写实风格句');
+  eq(artworkMedium(STYLE_PRESETS.photoreal.sentence).join(','), 'live-action', '写实风格句只有实拍一种媒介');
+  ok(!/film[\s-]+still/i.test(STYLE_PRESETS.photoreal.sentence), '写实风格句不写 film still');
+  ok(artworkMedium(STYLE_PRESETS.photoreal.phrase).join(',') === 'live-action', '写实分镜图短语是实拍媒介');
+}
 eq(seeded.episodes.length, 6, 'seed 全六集');
 eq(seeded.episodes[0].segments.length, 0, 'segments 留空给模型切');
 eq(seeded.episodes[0].seedScenes.length, 2, '工作底稿带两场');

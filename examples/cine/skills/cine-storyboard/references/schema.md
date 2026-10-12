@@ -9,7 +9,7 @@
 ```json
 {
   "source": "渡口",
-  "style": "realistic",
+  "style": "semi-realistic",
   "styleSentence": "The target video uses semi-realistic painterly rendering with soft blended edges and visible brush texture, a muted ink-blue and cold gray-green palette, and soft misty morning light matching the cast and art references.",
   "continuityContractVersion": 1,
   "promptLang": "en",
@@ -20,7 +20,7 @@
 
 `promptLang` 可省略（**默认 `en`**）：六段正文英文、禁角色名，台词保留原文并使用一致的语言标签，如 `<d>[Chinese]` 或 `<d>[English]`。`zh` 保留旧中文模式兼容，不代表符合官方英文 Ref2VA 格式；Ref2VA 字段名仍为英文。
 
-`style` 可省略（默认 `realistic`），预设与角色/场景 skill 同名对齐（`realistic` / `ghibli`）。`realistic` 是半写实厚涂，frame 必含 `semi-realistic painterly`；`ghibli` 对应 `hand-painted anime`。画风由本片 cast/art 的实际图像设定推导，每切 frame 与每段视频描述保持同一媒介、笔触和配色。
+`style` 可省略（默认 `semi-realistic`），预设与角色/场景 skill 同名对齐（`photoreal` / `semi-realistic` / `ghibli`）。`photoreal` 是写实，frame 必含 `photorealistic live-action`；`semi-realistic`（旧名 `realistic`，0.14.0 移除）是半写实厚涂，frame 必含 `semi-realistic painterly`；`ghibli` 对应 `hand-painted anime`。画风由本片 cast/art 的实际图像设定推导，每切 frame 与每段视频描述保持同一媒介、笔触和配色。
 
 `styleSentence` 是可选顶层 string：从 cast/art 推导的一条英文风格句，在每段 Ref2VA 的 `detailed_description` 中、`[Shot 1]` 之前逐字复用；省略时各段仍须使用同一条风格句。`seed --cast <cast.json> --art <art.json>` 读取上游预设并给起稿句，按具体设定改句时同步全片。
 

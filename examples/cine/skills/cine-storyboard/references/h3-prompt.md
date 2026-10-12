@@ -12,7 +12,7 @@ Ref2VA 六段的正文用英文，默认 `promptLang: "en"`。台词、歌词和
 
 ## 全片风格跟设定图走
 
-从本片 cast 的 `image.style`、`image.prompt` / `image.sheet` 以及 art 的 `image.prompt`、`image.tags` 取共同的媒介、笔触、配色与光线。默认 `realistic` 预设是 **semi-realistic painterly**。上游明确为其他预设时跟随上游；角色与场景的媒介冲突先解决。
+从本片 cast 的 `image.style`、`image.prompt` / `image.sheet` 以及 art 的 `image.prompt`、`image.tags` 取共同的媒介、笔触、配色与光线。预设与角色/场景同名：`photoreal` 是 **photorealistic live-action**，`semi-realistic`（旧名 `realistic`）是 **semi-realistic painterly**，`ghibli` 是 hand-painted anime。上游明确为其他预设时跟随上游；角色与场景的媒介冲突先解决。
 
 写出一条英文风格句，可存于顶层 `styleSentence`，全片每段逐字复用。Ref2VA 放在 `detailed_description:` 之后、`[Shot 1]` 之前，不在 Shot 1 里重复风格。每个 `frame` 沿用这套媒介与具体画风。`seed --cast <cast.json> --art <art.json>` 读取上游预设并提供起稿风格句；按真实设定改句子时，只改一次并同步全片。
 

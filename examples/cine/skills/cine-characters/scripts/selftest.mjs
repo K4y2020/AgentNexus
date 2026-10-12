@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { mediumAudit } from '../../_shared/cine-common.mjs';
 import {
   CHUNK_SIZE,
   MAX_CHUNKS,
@@ -214,8 +215,10 @@ eq(
   const seeded = seedFromOutline(outline);
 
   ok(seeded.characters.length === outline.characters.length, 'seed 出的角色数跟大纲一致');
+  eq(seedFromOutline(outline, { style: 'photoreal' }).style, 'photoreal', 'seed 按 --style 取原片画风');
+  eq(seedFromOutline(outline, { style: 'realistic' }).style, 'semi-realistic', 'seed 把旧名写成新名');
   ok(seeded.source === outline.source, 'source 从大纲继承');
-  ok(seeded.style === 'realistic', '画风取默认值，大纲里没有这个信息');
+  ok(seeded.style === 'semi-realistic', '画风取默认值，大纲里没有这个信息');
   ok(seeded.summary === '', 'summary 留空——那是读完原文才写得出来的');
 
   // 分档映射：大纲拍板的轻重，这一层不推翻
@@ -746,8 +749,8 @@ ok(
 
 /* ---------------- 画风预设 ---------------- */
 
-for (const id of ['realistic', 'ghibli']) ok(SUPPORTED_STYLES.includes(id), `内置 ${id} 预设`);
-eq(stylePreset('nope').render, STYLE_PRESETS.realistic.render, '未知风格退回默认');
+for (const id of ['photoreal', 'semi-realistic', 'ghibli']) ok(SUPPORTED_STYLES.includes(id), `内置 ${id} 预设`);
+eq(stylePreset('nope').render, STYLE_PRESETS['semi-realistic'].render, '未知风格退回默认');
 // 每个预设都要五块齐全，缺一块就会跟另一个预设混搭出四不像
 for (const [id, p] of Object.entries(STYLE_PRESETS)) {
   for (const k of ['render', 'surface', 'lighting', 'negative', 'tags']) {
@@ -756,12 +759,30 @@ for (const [id, p] of Object.entries(STYLE_PRESETS)) {
   ok(p.label.zh && p.label.en && p.label.ja, `${id} 预设有三语标签`);
 }
 // 这是整件事最容易搞反的地方：两个预设的反向提示词几乎相反
-ok(!/photorealistic|3d render/i.test(STYLE_PRESETS.realistic.negative), 'realistic 不禁写实');
+ok(!/photorealistic|3d render/i.test(STYLE_PRESETS['semi-realistic'].negative), 'realistic 不禁写实');
 ok(/photorealistic/i.test(STYLE_PRESETS.ghibli.negative), 'ghibli 必须禁写实');
 // 写实的表面细节在吉卜力里是反效果，两边不能是同一段
-ok(/visible pores/i.test(STYLE_PRESETS.realistic.surface), 'realistic 要毛孔');
+ok(/visible pores/i.test(STYLE_PRESETS['semi-realistic'].surface), 'realistic 要毛孔');
 ok(/no pores/i.test(STYLE_PRESETS.ghibli.surface), 'ghibli 明确不要毛孔');
-ok(STYLE_PRESETS.realistic.surface !== STYLE_PRESETS.ghibli.surface, '两个预设的表面处理不同');
+ok(STYLE_PRESETS['semi-realistic'].surface !== STYLE_PRESETS.ghibli.surface, '两个预设的表面处理不同');
+// 写实：不禁写实、要禁绘画感，渲染句只有实拍一种媒介
+ok(!/photorealistic|3d render/i.test(STYLE_PRESETS.photoreal.negative), 'photoreal 不禁写实');
+ok(/painterly/i.test(STYLE_PRESETS.photoreal.negative), 'photoreal 禁绘画感');
+eq(mediumAudit([{ label: 'x', text: STYLE_PRESETS.photoreal.render }]).media.join(','), 'live-action', 'photoreal 渲染句是实拍媒介');
+eq(stylePreset('realistic').render, STYLE_PRESETS['semi-realistic'].render, '旧名 realistic 仍指半写实');
+{
+  const photo = clone();
+  for (const c of photo) c.image.sheet = c.image.sheet.replace(STYLE_PRESETS['semi-realistic'].render, STYLE_PRESETS.photoreal.render);
+  ok(
+    validateCast(photo, SOURCE, 'zh', 'photoreal').some((x) => x.includes('必须禁 painterly')),
+    'photoreal 反向词没禁 painterly 会报错',
+  );
+  for (const c of photo) c.image.negativePrompt = STYLE_PRESETS.photoreal.negative;
+  ok(
+    !validateCast(photo, SOURCE, 'zh', 'photoreal').some((x) => x.includes('painterly') || x.includes('自相矛盾')),
+    'photoreal 用自带反向词不报画风错',
+  );
+}
 
 // 校验器要能抓住风格与反向提示词搞反
 const wrongStyle = clone();
@@ -777,9 +798,9 @@ ok(
 );
 eq(validateCast(CAST, SOURCE, 'zh', 'realistic').length, 0, '样例按 realistic 校验通过');
 const noRender = clone();
-noRender[0].image.sheet = noRender[0].image.sheet.replace(STYLE_PRESETS.realistic.render, '');
+noRender[0].image.sheet = noRender[0].image.sheet.replace(STYLE_PRESETS['semi-realistic'].render, '');
 ok(
-  validateCast(noRender, SOURCE, 'zh', 'realistic').some((x) => x.includes(`「${STYLE_PRESETS.realistic.render}」`)),
+  validateCast(noRender, SOURCE, 'zh', 'realistic').some((x) => x.includes(`「${STYLE_PRESETS['semi-realistic'].render}」`)),
   '缺渲染句时报错里写出要逐字包含的那句',
 );
 

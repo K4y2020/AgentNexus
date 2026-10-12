@@ -5,7 +5,7 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { esc, flag, mediumAudit, r1, readJson, runCli, safeStem } from '../../_shared/cine-common.mjs';
+import { canonicalStyle, esc, flag, mediumAudit, r1, readJson, runCli, safeStem } from '../../_shared/cine-common.mjs';
 
 /* ------------------------------------------------------------------ */
 /* chunk                                                               */
@@ -207,12 +207,29 @@ export const DEFAULT_LANG = 'zh';
  *
  * 所以每个预设自带五块：render / surface / lighting / negative / tags，
  * 生成角色卡时整块取用，不要混搭。
+ *
+ * 默认跟原片一致：拉片记录原片画面媒介，production seed 用 --style 传进来；
+ * 没有记录时才落到 DEFAULT_STYLE。
  */
 
-export const DEFAULT_STYLE = 'realistic';
+export const DEFAULT_STYLE = 'semi-realistic';
 
 export const STYLE_PRESETS = {
-  realistic: {
+  photoreal: {
+    label: { zh: '写实', en: 'Photoreal live-action', ja: '実写' },
+    render:
+      'Photorealistic live-action character reference, photographed like a costume and casting test on a cinema camera, natural true-to-life proportions',
+    surface:
+      'Skin with visible pores and uneven tone, faint capillaries at the nostrils and ear rims, subtle subsurface scattering; eyes with a wet specular highlight, moist lower lid, visible iris fibres and a limbal ring; eyelids and eyebrows slightly asymmetric — no two sides identical; individual flyaway hair strands breaking the silhouette. Fabric with a visible weave, wear and shine at elbows, cuffs and knees, cloth falling with real weight and self-shadowing in the folds. Clean, smooth backdrop and surfaces with no grain or noise',
+    lighting:
+      'LIGHTING IN THE LEFT ZONE ONLY: a soft directional key light from the upper left with gentle falloff, subtle ambient occlusion under the chin, in the eye sockets and where the collar meets the neck, giving the head real volume. LIGHTING IN THE RIGHT ZONES: flat even orthographic lighting with no directional key and no cast shadows, so the figures stay measurable and cleanly cut out',
+    // 写实要禁绘画感，但同样绝不能禁 photorealistic
+    negative:
+      'painterly, brush strokes, illustration, drawing, anime, cartoon, cel shading, plastic or waxy skin, over-smoothed airbrushed complexion, poreless doll face, perfectly symmetrical face, dead flat eyes without specular highlight, helmet-like hair with no loose strands, film grain, digital noise, extra fingers, malformed hands, text, watermark, signature, busy or patterned background, harsh cast shadows on the backdrop',
+    tags: ['photoreal', 'live-action', 'character sheet', 'natural skin', 'directional key light'],
+  },
+
+  'semi-realistic': {
     label: { zh: '半写实厚涂', en: 'Semi-realistic painterly', ja: '半写実・厚塗り' },
     render:
       'Semi-realistic character illustration, painterly rendering with soft blended edges and visible brush texture, anatomically grounded',
@@ -245,7 +262,8 @@ export const STYLE_PRESETS = {
 };
 
 export const SUPPORTED_STYLES = Object.keys(STYLE_PRESETS);
-export const stylePreset = (id) => STYLE_PRESETS[id] ?? STYLE_PRESETS[DEFAULT_STYLE];
+export const isStyle = (id) => SUPPORTED_STYLES.includes(canonicalStyle(id));
+export const stylePreset = (id) => STYLE_PRESETS[canonicalStyle(id)] ?? STYLE_PRESETS[DEFAULT_STYLE];
 
 const STRINGS = {
   zh: {
@@ -475,7 +493,7 @@ export const TIER_TO_IMPORTANCE = { lead: 'protagonist', support: 'supporting', 
  * 附一条 seedNote 带上下文。产出是骨架不是成品，直接跑 validate 会报一堆
  * 字段缺失，那是预期的。
  */
-export function seedFromOutline(outline) {
+export function seedFromOutline(outline, { style = DEFAULT_STYLE } = {}) {
   const characters = (outline?.characters ?? []).map((c) => {
     const note = [
       c?.id ? `角色码 ${c.id}` : null,
@@ -507,7 +525,7 @@ export function seedFromOutline(outline) {
   return {
     source: outline?.source ?? '',
     lang: outline?.lang ?? DEFAULT_LANG,
-    style: DEFAULT_STYLE,
+    style: canonicalStyle(style),
     summary: '',
     characters,
   };
@@ -564,7 +582,7 @@ export function validateCast(characters, sourceText, lang = DEFAULT_LANG, style 
   // --- 同剧角色画风必须一致 ---
   // 这是整批图"像不像同一部片"的底线。每个角色的 image.style 给人读的画风
   // 一句话，模型在第二趟出卡时可能按各自服装/年龄自由发挥（藏青/冷灰/大地色
-  // 各写一套），导致同框时像四个画师画的。预设只约束大类别（realistic/ghibli），
+  // 各写一套），导致同框时像四个画师画的。预设只约束大类别（photoreal/semi-realistic/ghibli），
   // 管不到剧内统一，所以用确定性检查兜底：归一化后多于一种值就报错，并点名
   // 哪些角色用了不同画风。单角色（或未写 image.style 的角色）不触发。
   const styleByChar = [];
@@ -765,14 +783,18 @@ export function validateCast(characters, sourceText, lang = DEFAULT_LANG, style 
     }
     // --- 风格与提示词必须匹配 ---
     // 两个预设的反向提示词几乎是相反的，搞反了整批图都毁。
-    if (image && SUPPORTED_STYLES.includes(style)) {
+    if (image && isStyle(style)) {
       const neg = typeof image.negativePrompt === 'string' ? image.negativePrompt : '';
       const bansRealism = /photorealistic|3d render/i.test(neg);
-      if (style === 'realistic' && bansRealism) {
-        at(name, 'style=realistic 却在 negativePrompt 里禁 photorealistic／3d render——自相矛盾');
+      const id = canonicalStyle(style);
+      if (id !== 'ghibli' && bansRealism) {
+        at(name, `style=${id} 却在 negativePrompt 里禁 photorealistic／3d render——自相矛盾`);
       }
-      if (style === 'ghibli' && !bansRealism) {
+      if (id === 'ghibli' && !bansRealism) {
         at(name, 'style=ghibli 的 negativePrompt 必须禁 photorealistic／3d render');
+      }
+      if (id === 'photoreal' && !/\bpainterly\b|\bbrush[ -]?strokes?\b/i.test(neg)) {
+        at(name, 'style=photoreal 的 negativePrompt 必须禁 painterly／brush strokes，否则会画出笔触');
       }
       const preset = stylePreset(style);
       if (typeof image.sheet === 'string' && !image.sheet.includes(preset.render)) {
@@ -1729,7 +1751,7 @@ document.addEventListener('click', async (e) => {
 
 const USAGE = `cine-characters.mjs — cine-characters skill 的确定性工具
 
-  seed <outline.json>              从大纲预填角色表骨架（打印到 stdout，画像与提示词留空待填）
+  seed <outline.json> [--style]    从大纲预填角色表骨架（打印到 stdout，画像与提示词留空待填）
   chunk <book.txt> <workdir>       段落感知重叠切块，写 chunk-NN.txt，打印块数
   merge <workdir>                  归并 roster-*.json，打印 {characters, mergeCandidates}
         [--apply merges.json]      落地复核后的合并决定：{"merges":[{"keep":…,"absorb":[…]}]}
@@ -1778,8 +1800,10 @@ function main(argv) {
 
   if (cmd === 'seed') {
     const [path] = rest;
-    if (!path) throw new Error('用法：seed <outline.json>');
-    console.log(JSON.stringify(seedFromOutline(readJson(path)), null, 2));
+    if (!path) throw new Error('用法：seed <outline.json> [--style photoreal|semi-realistic|ghibli]');
+    const style = flag(rest, '--style', DEFAULT_STYLE);
+    if (!isStyle(style)) throw new Error(`未知风格 ${style}（可用：${SUPPORTED_STYLES.join('/')}）`);
+    console.log(JSON.stringify(seedFromOutline(readJson(path), { style }), null, 2));
     return;
   }
 
@@ -1828,7 +1852,7 @@ function main(argv) {
   if (cmd === 'assemble') {
     const [workdir] = rest;
     if (!workdir || workdir.startsWith('--')) {
-      throw new Error('用法：assemble <workdir> --source <书名> [--lang zh] [--style realistic] [--out cast.json]');
+      throw new Error('用法：assemble <workdir> --source <书名> [--lang zh] [--style semi-realistic] [--out cast.json]');
     }
     const dir = resolve(workdir);
     const sourceName = flag(rest, '--source');
@@ -1912,7 +1936,7 @@ function main(argv) {
     const source = bookPath ? readFileSync(resolve(bookPath), 'utf8') : null;
     if (!bookPath) console.error('⚠️ 没给原文，跳过逐字引文校验');
     const problems = validateCast(characters, source, lang, style);
-    if (!SUPPORTED_STYLES.includes(style)) {
+    if (!isStyle(style)) {
       problems.unshift(`顶层 style=${style} 不是已知预设（${SUPPORTED_STYLES.join('/')}）`);
     }
     // 顶层的故事摘要——报告要用，缺了就没法在顶部交代背景

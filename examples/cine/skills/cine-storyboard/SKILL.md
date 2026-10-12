@@ -110,7 +110,7 @@ node {baseDir}/scripts/cine-storyboard.mjs seed <script.json> --eps 1-3 \
 <!-- cine-core:start -->
 以下是必读创作流程，已随入口完整返回，无需再次读取 pass 参考文件。
 读取原生剧本、当前角色/场景/道具设定及剧本交接说明；输出仍为 `segments/cuts`。
-叙事选择服从剧本，画风服从本片 cast/art 设定，默认半写实厚涂（semi-realistic painterly）。电影感来自画面选择与连续的声画设计，不来自术语数量。
+叙事选择服从剧本，画风服从本片 cast/art 设定（默认跟原片一致：写实是 photorealistic live-action，半写实是 semi-realistic painterly）。电影感来自画面选择与连续的声画设计，不来自术语数量。
 
 #### 整场视觉设计
 

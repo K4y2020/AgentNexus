@@ -269,6 +269,17 @@ def source_material(project, *, require_complete=True):
             f"SHOT_NOTES_INCOMPLETE: {notes_relative} does not exist. Run film_analyze, "
             "which reads every shot, then export again."
         )
+    # The source's rendering medium sets the production's default style preset.
+    style_relative = f"revisions/{revision}/visual_style.json"
+    if (root / style_relative).is_file():
+        style = read(style_relative)
+        if (
+            isinstance(style, dict)
+            and style.get("source_id") == source_id
+            and style.get("revision_id") == revision
+            and style.get("status") == "read"
+        ):
+            result["visual_style"] = {k: style.get(k) for k in ("style", "evidence", "model")}
     result["source_input_hashes"] = input_hashes
     return result
 

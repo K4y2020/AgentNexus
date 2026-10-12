@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { auditStoryboard, gateReport, STYLE_PRESETS, validateStoryboard } from './cine-storyboard.mjs';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
-const styleSentence = STYLE_PRESETS.realistic.sentence;
+const styleSentence = STYLE_PRESETS['semi-realistic'].sentence;
 const script = {
   episodes: [{ ep: 1, hook: 'A locked cabinet.', cliff: 'The bell rings.', scenes: [
     { sceneId: 'S01', characters: ['C01', 'C02'], flow: [
@@ -57,6 +57,8 @@ check(issues(audit((b) => { b.episodes[0].segments[0].h3Prompt = ''; }), 'video-
 
 check(issues(audit((b) => { b.episodes[0].segments[0].cuts[0].frame = 'Photorealistic medium shot.'; }), 'style-consistency').length === 1, 'painted reference and live-action video conflict');
 check(issues(audit(() => {}, (c) => { c.cast.style = 'ghibli'; }), 'style-consistency').length === 1, 'style metadata mismatch is reported');
+check(!issues(audit((b) => { b.style = 'semi-realistic'; }), 'style-consistency').length, 'the old realistic id equals semi-realistic');
+check(issues(audit(() => {}, (c) => { c.cast.style = 'photoreal'; }), 'style-consistency').length === 1, 'a photoreal cast against a semi-realistic storyboard is reported');
 check(issues(audit(() => {}, (c) => { c.cast.characters[0].image.prompt = 'Hand-painted anime character sheet.'; }), 'style-consistency').length === 3, 'used cast references are compared to each segment');
 check(issues(audit(() => {}, (c) => { c.art.scenes[0].image.prompt = 'Cartoon empty workshop.'; }), 'style-consistency').length === 2, 'used scene references are compared');
 check(audit((b) => { b.episodes[0].segments[0].cuts[0].frame = 'Cinematic film still, medium shot.'; }).skips.some((item) => item.rule === 'style-consistency'), 'generic cinematic wording is recorded as insufficient evidence');

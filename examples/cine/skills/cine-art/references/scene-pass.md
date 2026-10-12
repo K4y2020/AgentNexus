@@ -31,7 +31,7 @@
 ## 输入格式
 
 ```
-Style: realistic
+Style: semi-realistic
 Scene: S01 渡船船舱（主场景）
 出现集：1–6　承载爽点：悬念钩、身份揭破、反转、收束
 

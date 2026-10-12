@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { artworkMedium } from '../../_shared/cine-common.mjs';
 import {
   ANCHOR_RANGE,
   DEFAULT_STYLE,
@@ -46,14 +47,35 @@ const gate = (d, id, names = null) => gateReport(d, names).find((g) => g.id === 
 
 /* ---------------- 画风预设 ---------------- */
 
-eq(DEFAULT_STYLE, 'realistic', '默认半写实');
-eq(SUPPORTED_STYLES.join(','), 'realistic,ghibli', '两档画风与 cine-characters 同名对齐');
-ok(!/photorealistic/.test(SCENE_STYLE_PRESETS.realistic.negative), 'realistic 不禁 photorealistic');
+eq(DEFAULT_STYLE, 'semi-realistic', '默认半写实');
+eq(SUPPORTED_STYLES.join(','), 'photoreal,semi-realistic,ghibli', '三档画风与 cine-characters 同名对齐');
+ok(!/photorealistic/.test(SCENE_STYLE_PRESETS['semi-realistic'].negative), 'realistic 不禁 photorealistic');
 ok(/photorealistic/.test(SCENE_STYLE_PRESETS.ghibli.negative), 'ghibli 必须禁 photorealistic');
-ok(/people/.test(SCENE_STYLE_PRESETS.realistic.negative), 'realistic 预设自带禁人');
+ok(/people/.test(SCENE_STYLE_PRESETS['semi-realistic'].negative), 'realistic 预设自带禁人');
 ok(/people/.test(SCENE_STYLE_PRESETS.ghibli.negative), 'ghibli 预设自带禁人');
-ok(!/pore|skin|subsurface/i.test(SCENE_STYLE_PRESETS.realistic.surface), '环境预设不带皮肤毛孔那套——那是角色的');
-eq(scenePreset('nope'), SCENE_STYLE_PRESETS.realistic, '未知风格退回默认');
+ok(!/pore|skin|subsurface/i.test(SCENE_STYLE_PRESETS['semi-realistic'].surface), '环境预设不带皮肤毛孔那套——那是角色的');
+eq(scenePreset('nope'), SCENE_STYLE_PRESETS['semi-realistic'], '未知风格退回默认');
+eq(scenePreset('realistic'), SCENE_STYLE_PRESETS['semi-realistic'], '旧名 realistic 仍指半写实');
+{
+  const photo = SCENE_STYLE_PRESETS.photoreal;
+  ok(!/photorealistic|3d render/.test(photo.negative), 'photoreal 不禁 photorealistic');
+  ok(/painterly/.test(photo.negative) && /digital noise/.test(photo.negative), 'photoreal 禁绘画感和噪点');
+  ok(/people/.test(photo.negative), 'photoreal 预设自带禁人');
+  eq(artworkMedium(photo.render).join(','), 'live-action', 'photoreal 渲染句只有实拍一种媒介');
+  eq(seedFromOutline(OUTLINE, { style: 'photoreal' }).style, 'photoreal', 'seed 按 --style 取画风');
+  eq(seedFromOutline(OUTLINE, { style: 'realistic' }).style, 'semi-realistic', 'seed 把旧名写成新名');
+  const doc = clone();
+  doc.style = 'realistic';
+  eq(validateArt(doc, castNamesOf(CAST)).length, 0, '旧名 realistic 的 art.json 照样通过');
+  const photoDoc = clone();
+  photoDoc.style = 'photoreal';
+  for (const item of [...photoDoc.scenes, ...(photoDoc.props ?? [])]) {
+    if (!item.image) continue;
+    item.image.sheet = (item.image.sheet ?? '').replace(SCENE_STYLE_PRESETS['semi-realistic'].render, photo.render);
+    item.image.prompt = item.image.prompt.replace(/semi-realistic[^,.]*/gi, 'photorealistic live-action reference');
+  }
+  ok(gate(photoDoc, 'style-match').detail.includes('没禁 painterly'), 'photoreal 反向词没禁 painterly 被拦');
+}
 
 /* ---------------- slug ---------------- */
 
@@ -65,7 +87,7 @@ eq(slug('a/b:c'), 'a-b-c', '危险字符替换');
 
 const seeded = seedFromOutline(OUTLINE);
 eq(seeded.source, '渡口', 'seed 带书名');
-eq(seeded.style, 'realistic', 'seed 默认画风');
+eq(seeded.style, 'semi-realistic', 'seed 默认画风');
 eq(seeded.scenes.length, 3, 'seed 搬全部场景');
 {
   const s01 = seeded.scenes.find((s) => s.id === 'S01');

@@ -100,6 +100,20 @@ export const gateTextFor = (labelsEn, skipsEn) => (g, lang) => {
 };
 
 /* ------------------------------------------------------------------ */
+/* style presets                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Old style ids still found in saved cast/art/storyboard files.
+ * @deprecated `realistic` was the name of `semi-realistic` before photoreal existed;
+ * remove the alias in 0.14.0.
+ */
+export const STYLE_ALIASES = { realistic: 'semi-realistic' };
+
+/** The preset id a saved or requested style means today. */
+export const canonicalStyle = (id) => STYLE_ALIASES[id] ?? id;
+
+/* ------------------------------------------------------------------ */
 /* artwork medium                                                      */
 /* ------------------------------------------------------------------ */
 
