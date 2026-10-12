@@ -51,7 +51,7 @@
     "promptLocal": "角色设定图：约七十岁的中国老船夫……",
     "negativePrompt": "photorealistic, 3d render, young face, ...",
     "tags": ["flat vector", "character sheet", "ink wash palette"],
-    "sheet": "Single character model sheet on ONE 16:9 landscape canvas ... LEFT ZONE ... about 34% ... one bust portrait ... RIGHT-TOP ZONE ... three FULL-BODY views ... PROPORTIONS ARE CRITICAL ... RIGHT-BOTTOM ZONE ... four to five small isolated close-up studies ..."
+    "sheet": "Single character model sheet on ONE 16:9 landscape canvas ... LEFT ZONE ... about 34% ... one bust portrait ... RIGHT-TOP ZONE ... three FULL-BODY views ... THE FRONT VIEW IS DRAWN WITHOUT ITS HEAD ... PROPORTIONS ARE CRITICAL ... RIGHT-BOTTOM ZONE ... four to five small isolated close-up studies ... THE FIRST STUDY IS AN EXTREME CLOSE-UP OF ONE EYE ..."
   },
 
   "states": [

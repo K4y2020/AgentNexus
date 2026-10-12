@@ -925,10 +925,23 @@ ok(
   '左栏禁止底边圆角渐隐',
 );
 ok(CAST.every((c) => /three FULL-BODY views/i.test(c.image.sheet)), '右上是三视图');
+// 正脸只画一次：小尺寸的第二张正脸总会和半身像不一样，参考图里就有了两个版本的脸
+ok(
+  CAST.every((c) => /THE FRONT VIEW IS DRAWN WITHOUT ITS HEAD/.test(c.image.sheet)),
+  '正视全身像不画头',
+);
+ok(
+  CAST.every((c) => !/faces on all three full-body views/i.test(c.image.sheet)),
+  '不再要求三视图都画脸',
+);
+ok(
+  CAST.every((c) => /THE FIRST STUDY IS AN EXTREME CLOSE-UP OF ONE EYE/.test(c.image.sheet)),
+  '细节条第一格是单眼特写',
+);
 // 两栏的脸必须画成同一个人，否则一张图里出现两个长相
 ok(
-  CAST.every((c) => /must match the bust portrait/i.test(c.image.sheet)),
-  '三视图的脸要求与半身像一致',
+  CAST.every((c) => /side profile face is fully drawn and must match the bust portrait/i.test(c.image.sheet)),
+  '侧脸要求与半身像一致',
 );
 // 「留空脸」是上一版的做法，已废弃——提示词里不该再出现
 ok(
